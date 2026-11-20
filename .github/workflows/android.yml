@@ -1,0 +1,69 @@
+name: APK de Android
+
+on:
+  push:
+    paths:
+      - 'app/**'
+      - 'data/**'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.50.1'
+          channel: stable
+          cache: true
+
+      - name: Catálogo dentro del APK
+        run: cp ../data/juegos.json assets/juegos.json
+
+      - name: Dependencias
+        run: flutter pub get
+
+      - name: Análisis y tests
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: Compilar APK
+        run: |
+          flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk ../hangar.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hangar-apk
+          path: hangar.apk
+
+      - name: Publicar en Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Hangar build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          files: hangar.apk
+          body: |
+            APK de prueba compilado desde `${{ github.ref_name }}` (${{ github.sha }}).
+            Descárgalo en la tablet e instálalo. Si ya tenías otra build, desinstálala antes: cada build va firmada con una clave de depuración distinta.
