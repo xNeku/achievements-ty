@@ -1,8 +1,12 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'data.dart';
 import 'home.dart';
+import 'installer.dart';
 import 'library.dart';
 import 'pages.dart';
 import 'theme.dart';
@@ -13,22 +17,25 @@ Future<void> main() async {
   // Solo horizontal, a pantalla completa, como una consola.
   await SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  final store = CatalogStore(), ajustes = Ajustes();
-  await Future.wait([store.init(), ajustes.init()]);
-  runApp(HangarApp(store: store, ajustes: ajustes));
+  // Cada sistema tiene su catálogo: los ports de Android no sirven en el Mac y al revés.
+  final mac = kIsWeb ? Uri.base.queryParameters.containsKey('mac') : Platform.isMacOS;
+  final store = CatalogStore(mac ? 'juegos-mac.json' : 'juegos.json'), ajustes = Ajustes(), installer = Installer();
+  await Future.wait([store.init(), ajustes.init(), installer.init()]);
+  runApp(HangarApp(store: store, ajustes: ajustes, installer: installer));
 }
 
 class HangarApp extends StatelessWidget {
   final CatalogStore store;
   final Ajustes ajustes;
-  const HangarApp({super.key, required this.store, required this.ajustes});
+  final Installer installer;
+  const HangarApp({super.key, required this.store, required this.ajustes, required this.installer});
 
   @override
   Widget build(BuildContext context) => MaterialApp(
         title: 'Hangar',
         debugShowCheckedModeBanner: false,
         theme: buildTheme(),
-        home: Shell(store: store, ajustes: ajustes),
+        home: Shell(store: store, ajustes: ajustes, installer: installer),
       );
 }
 
@@ -40,7 +47,8 @@ enum Tab { juegos, biblioteca, logros, amigos, ajustes }
 class Shell extends StatefulWidget {
   final CatalogStore store;
   final Ajustes ajustes;
-  const Shell({super.key, required this.store, required this.ajustes});
+  final Installer installer;
+  const Shell({super.key, required this.store, required this.ajustes, required this.installer});
   @override
   State<Shell> createState() => _ShellState();
 }
@@ -52,9 +60,17 @@ class _ShellState extends State<Shell> {
   final _searchFocus = FocusNode(debugLabel: 'buscar');
   List<Juego> _destacados = const [];
   List<Juego>? _lastSource;
+  late final AppLifecycleListener _life = AppLifecycleListener(onResume: widget.installer.comprobar);
+
+  @override
+  void initState() {
+    super.initState();
+    _life;
+  }
 
   @override
   void dispose() {
+    _life.dispose();
     _searchFocus.dispose();
     super.dispose();
   }
@@ -65,9 +81,10 @@ class _ShellState extends State<Shell> {
       _lastSource = all;
       final conHero = all.where((j) => j.hasHero).toList();
       int rank(Juego j) {
+        if (j.orden < 9999) return j.orden; // el catálogo ya trae su orden (Mac)
         final n = j.nombre.toLowerCase();
         final i = _portada.indexWhere((p) => n.startsWith(p) || n == p);
-        return i < 0 ? 999 : i;
+        return i < 0 ? 100 + j.orden : i;
       }
 
       conHero.sort((a, b) {
@@ -103,7 +120,7 @@ class _ShellState extends State<Shell> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-        listenable: Listenable.merge([widget.store, widget.ajustes]),
+        listenable: Listenable.merge([widget.store, widget.ajustes, widget.installer]),
         builder: (context, _) {
           final all = widget.store.catalogo.juegos;
           final sel = _selector(all);
@@ -129,6 +146,7 @@ class _ShellState extends State<Shell> {
                       child: IndexedStack(index: _tab.index, children: [
                         HomeScreen(
                           juegos: sel,
+                          installer: widget.installer,
                           index: _index,
                           onIndex: (i) => setState(() => _index = i),
                           active: _tab == Tab.juegos,

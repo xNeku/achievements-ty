@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hangar/data.dart';
 
@@ -14,5 +16,21 @@ void main() {
     expect(l.first.dudoso, true);
     expect(l.last.subtitulo, 'Beta Recomp');
     expect(l.first.repos.first.url, 'https://github.com/y/alfa');
+  });
+
+  test('lee la información de instalación para Mac', () {
+    const raw = '{"juegos":[{"id":"z","nombre":"Zelda","tipos":["recomp"],"repos":[{"repo":"a/b","tipo":"recomp",'
+        '"mac":{"tag":"v1","asset":"Z-*-macOS.zip","args":["--rom","{game}"],"pasos":["uno"],"juego":{"tipo":"rom","texto":"Tu ROM"}}}]}]}';
+    final r = Catalogo.parse(raw).single.repos.single;
+    expect(r.mac?.asset, 'Z-*-macOS.zip');
+    expect(r.mac?.pideCopia, true);
+    expect(r.mac?.pasos, ['uno']);
+    expect(r.mac?.juegoTexto, 'Tu ROM');
+  });
+
+  test('el catálogo de Mac del repo se puede leer', () {
+    final l = Catalogo.parse(File('assets/juegos-mac.json').readAsStringSync());
+    expect(l.length, greaterThan(400));
+    expect(l.where((j) => j.repos.any((r) => r.mac?.asset != null)).length, greaterThan(400));
   });
 }

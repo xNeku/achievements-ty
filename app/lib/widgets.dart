@@ -107,8 +107,9 @@ class GlassButton extends StatelessWidget {
 class PlayPill extends StatelessWidget {
   final VoidCallback onTap;
   final String label;
+  final IconData icon;
   final bool compact;
-  const PlayPill({super.key, required this.onTap, this.label = 'Jugar', this.compact = false});
+  const PlayPill({super.key, required this.onTap, this.label = 'Jugar', this.icon = Icons.play_arrow_rounded, this.compact = false});
 
   @override
   Widget build(BuildContext context) => Material(
@@ -124,7 +125,7 @@ class PlayPill extends StatelessWidget {
                 width: compact ? 30 : 36,
                 height: compact ? 30 : 36,
                 decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                child: Icon(Icons.play_arrow_rounded, color: C.card, size: compact ? 20 : 24),
+                child: Icon(icon, color: C.card, size: compact ? 20 : 24),
               ),
               SizedBox(width: compact ? 10 : 14),
               Text(label.toUpperCase(), style: T.label(size: compact ? 12 : 14, color: C.ink, w: FontWeight.w600)),

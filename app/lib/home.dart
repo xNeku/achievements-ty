@@ -7,6 +7,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'data.dart';
+import 'installer.dart';
+import 'play.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -14,6 +16,7 @@ import 'widgets.dart';
 /// tu partida, los logros y los proyectos de GitHub.
 class HomeScreen extends StatefulWidget {
   final List<Juego> juegos;
+  final Installer installer;
   final int index;
   final ValueChanged<int> onIndex;
   final bool active, chispas, vibracion;
@@ -21,6 +24,7 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
     required this.juegos,
+    required this.installer,
     required this.index,
     required this.onIndex,
     required this.active,
@@ -137,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return KeyEventResult.handled;
   }
 
-  void _play(BuildContext context) => showPlaySheet(context, _g);
+  void _play(BuildContext context) => playAction(context, _g, widget.installer);
 
   @override
   Widget build(BuildContext context) {
@@ -178,6 +182,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         onPick: widget.onIndex,
                         onDown: () => _setOpen(true),
                         onPlay: () => _play(context),
+                        installer: widget.installer,
                       ),
                     ),
                   ),
@@ -199,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             }
                             return false;
                           },
-                          child: _RecordScreen(g: _g, controller: _scroll, compact: compact, onUp: () => _setOpen(false)),
+                          child: _RecordScreen(g: _g, installer: widget.installer, controller: _scroll, compact: compact, onUp: () => _setOpen(false)),
                         ),
                       ),
                     ),
@@ -322,6 +327,7 @@ class _HeroArt extends StatelessWidget {
 
 class _GameScreen extends StatelessWidget {
   final Juego g;
+  final Installer installer;
   final List<Juego> juegos;
   final int index;
   final bool compact, chispas;
@@ -338,6 +344,7 @@ class _GameScreen extends StatelessWidget {
     required this.onDown,
     required this.onPlay,
     required this.onPick,
+    required this.installer,
   });
 
   @override
@@ -427,9 +434,11 @@ class _GameScreen extends StatelessWidget {
           right: compact ? 18 : 48,
           bottom: compact ? 16 : 56,
           child: Row(children: [
-            _Mini(onTap: onDown, compact: compact),
+            _Mini(onTap: onDown, compact: compact, segundos: installer.segundos(g)),
             SizedBox(width: compact ? 12 : 20),
-            PlayPill(onTap: onPlay, compact: compact),
+            PlayButton(g: g, installer: installer, compact: compact, onTap: onPlay),
+            SizedBox(width: compact ? 8 : 12),
+            GlassButton(icon: Icons.more_horiz_rounded, onTap: () => showPlaySheet(context, g, installer), tooltip: 'Versiones', size: compact ? 42 : 52),
           ]),
         ),
         if (!compact)
@@ -486,6 +495,13 @@ class _Info extends StatelessWidget {
         textAlign: TextAlign.right,
         style: T.label(size: 12, color: C.ink2),
       ),
+      if (g.descripcion.isNotEmpty && !compact) ...[
+        const SizedBox(height: 12),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: Text(g.descripcion, textAlign: TextAlign.right, maxLines: 3, overflow: TextOverflow.ellipsis, style: T.sans(size: 15, color: C.ink2, height: 1.5)),
+        ),
+      ],
       if (g.dudoso) ...[
         const SizedBox(height: 10),
         Row(mainAxisSize: MainAxisSize.min, children: [
@@ -534,10 +550,22 @@ class _Strip extends StatelessWidget {
   }
 }
 
+String horas(int s) => s < 3600 ? '${(s / 60).floor()} min' : '${(s / 3600).toStringAsFixed(s < 36000 ? 1 : 0).replaceAll('.', ',')} h';
+
+String cuando(DateTime? d) {
+  if (d == null) return 'Nunca';
+  final days = DateTime.now().difference(d).inDays;
+  if (days == 0) return 'Hoy';
+  if (days == 1) return 'Ayer';
+  if (days < 7) return 'Hace $days días';
+  return '${d.day}/${d.month}/${d.year}';
+}
+
 class _Mini extends StatelessWidget {
   final VoidCallback onTap;
   final bool compact;
-  const _Mini({required this.onTap, required this.compact});
+  final int segundos;
+  const _Mini({required this.onTap, required this.compact, required this.segundos});
 
   @override
   Widget build(BuildContext context) {
@@ -550,7 +578,7 @@ class _Mini extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(children: [stat('0 h', 'Jugado'), SizedBox(width: compact ? 16 : 26), stat('—', 'Logros')]),
+        child: Row(children: [stat(segundos == 0 ? '0 h' : horas(segundos), 'Jugado'), SizedBox(width: compact ? 16 : 26), stat('—', 'Logros')]),
       ),
     );
   }
@@ -559,10 +587,11 @@ class _Mini extends StatelessWidget {
 /// Segunda pantalla: tu partida, logros y repos.
 class _RecordScreen extends StatelessWidget {
   final Juego g;
+  final Installer installer;
   final ScrollController controller;
   final bool compact;
   final VoidCallback onUp;
-  const _RecordScreen({required this.g, required this.controller, required this.compact, required this.onUp});
+  const _RecordScreen({required this.g, required this.installer, required this.controller, required this.compact, required this.onUp});
 
   @override
   Widget build(BuildContext context) {
@@ -587,7 +616,7 @@ class _RecordScreen extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(side, compact ? 28 : 48, side, 56),
             sliver: SliverList.list(children: [
               const SectionTitle('Tu partida'),
-              _Stats(compact: compact),
+              _Stats(compact: compact, segundos: installer.segundos(g), ultima: installer.ultima(g)),
               SizedBox(height: compact ? 36 : 56),
               const SectionTitle('Logros'),
               Panel(
@@ -677,7 +706,9 @@ class _Header extends SliverPersistentHeaderDelegate {
 
 class _Stats extends StatelessWidget {
   final bool compact;
-  const _Stats({required this.compact});
+  final int segundos;
+  final DateTime? ultima;
+  const _Stats({required this.compact, required this.segundos, this.ultima});
 
   @override
   Widget build(BuildContext context) {
@@ -702,7 +733,8 @@ class _Stats extends StatelessWidget {
             ],
           ]),
         );
-    final tiles = [tile('0', 'h', 'Tiempo jugado'), tile('0', '', 'Logros obtenidos'), tile('0', '%', 'Completado', bar: 0), tile('Nunca', '', 'Última sesión')];
+    final t = segundos < 3600 ? ['${(segundos / 60).floor()}', 'min'] : [(segundos / 3600).toStringAsFixed(1).replaceAll('.', ','), 'h'];
+    final tiles = [tile(t[0], t[1], 'Tiempo jugado'), tile('0', '', 'Logros obtenidos'), tile('0', '%', 'Completado', bar: 0), tile(cuando(ultima), '', 'Última sesión')];
     return Container(
       decoration: BoxDecoration(color: const Color(0xD1120E11), borderRadius: BorderRadius.circular(22), border: Border.all(color: C.line)),
       child: IntrinsicHeight(
@@ -745,54 +777,3 @@ class _RepoCard extends StatelessWidget {
       );
 }
 
-/// Panel lateral para elegir qué versión del juego descargar.
-Future<void> showPlaySheet(BuildContext context, Juego g) => showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Cerrar',
-      barrierColor: const Color(0x99000000),
-      transitionDuration: const Duration(milliseconds: 380),
-      pageBuilder: (context, _, _) => Align(
-        alignment: Alignment.centerRight,
-        child: Material(
-          color: C.panel,
-          borderRadius: const BorderRadius.horizontal(left: Radius.circular(28)),
-          child: SizedBox(
-            width: 440,
-            height: double.infinity,
-            child: SafeArea(
-              child: ListView(padding: const EdgeInsets.fromLTRB(32, 36, 32, 32), children: [
-                Text('Elige versión', style: T.serif(size: 40)),
-                const SizedBox(height: 10),
-                Text(
-                  'Hangar aún no instala juegos. Abre la página de descargas del port y sigue sus instrucciones con tu copia del juego.',
-                  style: T.sans(size: 14, color: C.ink2, height: 1.5),
-                ),
-                const SizedBox(height: 26),
-                for (final r in g.repos) ...[
-                  Panel(
-                    onTap: () => launchUrl(Uri.parse('${r.url}/releases'), mode: LaunchMode.externalApplication),
-                    padding: const EdgeInsets.all(18),
-                    child: Row(children: [
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(r.name, style: T.sans(size: 15, w: FontWeight.w600)),
-                          const SizedBox(height: 2),
-                          Text('${r.owner} · ${tipoLabel[r.tipo] ?? r.tipo}', style: T.sans(size: 13, color: C.ink2)),
-                        ]),
-                      ),
-                      const Icon(Icons.download_rounded, color: C.ink),
-                    ]),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ]),
-            ),
-          ),
-        ),
-      ),
-      transitionBuilder: (context, a, _, child) => SlideTransition(
-        position: Tween(begin: const Offset(1, 0), end: Offset.zero).animate(CurvedAnimation(parent: a, curve: Curves.easeOutCubic)),
-        child: child,
-      ),
-    );
