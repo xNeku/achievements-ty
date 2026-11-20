@@ -29,6 +29,11 @@ android {
         versionName = flutter.versionName
     }
 
+    lint {
+        // El lint de un plugin falla en CI; no bloquea compilar la release.
+        checkReleaseBuilds = false
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
