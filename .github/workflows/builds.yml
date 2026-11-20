@@ -1,0 +1,113 @@
+name: Builds de Hangar
+
+on:
+  push:
+    paths:
+      - 'app/**'
+      - 'data/**'
+      - '.github/workflows/builds.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: builds-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.50.1'
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Catálogo dentro de la app
+        run: cp ../data/juegos.json assets/juegos.json
+
+      - name: Dependencias
+        run: flutter pub get
+
+      - name: Análisis y tests
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: Compilar APK
+        run: |
+          flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk ../hangar.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hangar-android
+          path: hangar.apk
+
+  macos:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Catálogo dentro de la app
+        run: cp ../data/juegos.json assets/juegos.json
+
+      - name: Compilar app de Mac
+        run: |
+          flutter pub get
+          flutter build macos --release
+          ditto -c -k --sequesterRsrc --keepParent build/macos/Build/Products/Release/Hangar.app ../hangar-mac.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hangar-macos
+          path: hangar-mac.zip
+
+  release:
+    needs: [android, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Publicar en Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Hangar build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          files: |
+            hangar.apk
+            hangar-mac.zip
+          body: |
+            Compilado desde `${{ github.ref_name }}` (${{ github.sha }}).
+
+            **Android** (`hangar.apk`): descárgalo en el dispositivo e instálalo. Si ya tenías otra build, desinstálala antes.
+
+            **Mac** (`hangar-mac.zip`): descomprímelo y arrastra Hangar a Aplicaciones. La primera vez macOS lo bloquea porque no está firmado por Apple: abre Ajustes del Sistema → Privacidad y seguridad → «Abrir igualmente». O en Terminal: `xattr -dr com.apple.quarantine /Applications/Hangar.app`

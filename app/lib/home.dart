@@ -93,6 +93,28 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     if (_open && _wheelFromTop && e.scrollDelta.dy < -6 && (!_scroll.hasClients || _scroll.offset <= 0)) _setOpen(false);
   }
 
+  // Trackpad (Mac): dos dedos arriba/abajo cambian de pantalla, a los lados cambian de juego.
+  bool _panTop = false, _panDone = false;
+  void _onPanStart(PointerPanZoomStartEvent e) {
+    _panTop = _open && (!_scroll.hasClients || _scroll.offset <= 0);
+    _panDone = false;
+  }
+
+  void _onPanUpdate(PointerPanZoomUpdateEvent e) {
+    if (_panDone || _locked) return;
+    final p = e.pan;
+    if (!_open && p.dx.abs() > 90 && p.dx.abs() > p.dy.abs()) {
+      _panDone = true;
+      _go(p.dx < 0 ? 1 : -1);
+    } else if (!_open && p.dy < -50 && p.dy.abs() > p.dx.abs()) {
+      _panDone = true;
+      _setOpen(true);
+    } else if (_open && _panTop && p.dy > 70 && (!_scroll.hasClients || _scroll.offset <= 0)) {
+      _panDone = true;
+      _setOpen(false);
+    }
+  }
+
   KeyEventResult _onKey(FocusNode _, KeyEvent e) {
     if (e is! KeyDownEvent && e is! KeyRepeatEvent) return KeyEventResult.ignored;
     final k = e.logicalKey;
@@ -128,6 +150,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         onKeyEvent: _onKey,
         child: Listener(
           onPointerSignal: _onWheel,
+          onPointerPanZoomStart: _onPanStart,
+          onPointerPanZoomUpdate: _onPanUpdate,
           child: AnimatedBuilder(
             animation: _t,
             builder: (context, _) {

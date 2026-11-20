@@ -2,14 +2,14 @@
 
 Launcher para Android de decomps, recomps y source ports de código abierto. Un selector de juegos a pantalla grande, tu partida y tus logros debajo, los proyectos de GitHub de cada juego y una biblioteca con buscador.
 
-Hecho en Flutter. Solo horizontal, como una consola.
+Hecho en Flutter para Android y Mac. Solo horizontal, como una consola.
 
 ## Descargar la app
 
-Cada cambio en `app/` o `data/` compila un APK nuevo y lo publica en
-[Releases](../../releases/latest). Descarga `hangar.apk` en el dispositivo y ábrelo.
+Cada cambio en `app/` o `data/` compila la app y la publica en [Releases](../../releases/latest):
 
-> Las builds van firmadas con una clave de depuración distinta cada vez: desinstala la anterior antes de instalar una nueva.
+- **Android**: `hangar.apk`. Descárgalo en el dispositivo y ábrelo. Las builds van firmadas con una clave de depuración distinta cada vez: desinstala la anterior antes de instalar una nueva.
+- **Mac**: `hangar-mac.zip`. Descomprímelo y arrastra Hangar a Aplicaciones. Como no está firmado por Apple, la primera vez hay que permitirlo en Ajustes del Sistema → Privacidad y seguridad → «Abrir igualmente», o ejecutar `xattr -dr com.apple.quarantine /Applications/Hangar.app`.
 
 ## Catálogo
 
@@ -28,7 +28,7 @@ app/                 proyecto Flutter
   lib/pages.dart     logros, amigos y ajustes
   lib/data.dart      modelo del catálogo y descarga
 data/juegos.json     catálogo
-.github/workflows/   compilación del APK
+.github/workflows/   compilación de Android y Mac
 ```
 
 ## Desarrollo
@@ -36,8 +36,9 @@ data/juegos.json     catálogo
 ```bash
 cd app
 flutter pub get
-flutter run            # con un Android conectado
+flutter run            # con un Android conectado, o -d macos en un Mac
 flutter build apk
+flutter build macos    # solo desde un Mac
 ```
 
 Lo que todavía no hace: instalar o lanzar los juegos (el botón Jugar abre las descargas del port en GitHub), cuentas, amigos y logros reales.
