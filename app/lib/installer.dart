@@ -103,6 +103,9 @@ class Installer extends ChangeNotifier {
   String? error(Repo r) => _err[r.repo];
   Instalado? instalado(Repo r) => _hechos[r.repo];
 
+  /// Todo lo instalado (repo → registro), para el perfil.
+  Iterable<MapEntry<String, Instalado>> get todos => _hechos.entries;
+
   /// Se puede instalar aquí: en el Mac hace falta que el catálogo diga qué archivo bajar.
   bool instalable(Repo r) => esAndroid || (esMac && r.mac?.asset != null);
 
@@ -201,11 +204,22 @@ class Installer extends ChangeNotifier {
       }
       _clear(r);
     } catch (e) {
+      debugPrint('instalar ${r.repo}: $e');
       _fase.remove(r.repo);
-      _err[r.repo] = '$e';
+      _err[r.repo] = _explicar(e);
       notifyListeners();
     }
   }
+
+  /// Los errores, en cristiano.
+  static String _explicar(Object e) => switch (e) {
+        InstallError() => '$e',
+        SocketException() || HttpException() || TimeoutException() || HandshakeException() =>
+          'Se ha cortado la conexión. Pulsa Instalar otra vez y seguirá desde donde se quedó.',
+        FileSystemException(:final osError) when (osError?.errorCode == 28) =>
+          'No queda espacio en el dispositivo para descargar el juego.',
+        _ => 'Algo ha fallado al instalar: $e',
+      };
 
   Future<Uri> _resolver(Repo r, {required bool apk}) async {
     final m = r.mac;
@@ -264,27 +278,75 @@ class Installer extends ChangeNotifier {
     return Uri.parse('${pick['browser_download_url']}');
   }
 
+  /// Descarga aguantando cortes: si la conexión se cae, espera y sigue desde el último byte
+  /// (cabecera Range). Lo descargado se guarda en `<dest>.part`, así que si se agotan los
+  /// intentos, al pulsar Instalar otra vez continúa donde se quedó en vez de empezar de cero.
   Future<File> _descargar(Repo r, Uri url, File dest) async {
-    final c = HttpClient()..userAgent = 'Hangar';
-    try {
-      final req = await c.getUrl(url);
-      req.followRedirects = true;
-      req.maxRedirects = 10;
-      final res = await req.close();
-      if (res.statusCode != 200) throw InstallError('La descarga ha fallado (HTTP ${res.statusCode}).');
-      final total = res.contentLength;
-      await dest.parent.create(recursive: true);
-      final sink = dest.openWrite();
-      var got = 0;
-      await for (final chunk in res) {
-        sink.add(chunk);
-        got += chunk.length;
-        if (total > 0) _set(r, Fase.descargando, p: got / total, force: false);
+    await dest.parent.create(recursive: true);
+    final part = File('${dest.path}.part');
+    // Un trozo de otra versión no sirve: se apunta de qué enlace era.
+    final origen = File('${dest.path}.part.url');
+    if (!await origen.exists() || await origen.readAsString() != '$url') {
+      if (await part.exists()) await part.delete();
+      await origen.writeAsString('$url');
+    }
+    const intentos = 8;
+    for (var i = 1;; i++) {
+      final c = HttpClient()
+        ..userAgent = 'Hangar'
+        ..connectionTimeout = const Duration(seconds: 20)
+        ..idleTimeout = const Duration(seconds: 20);
+      IOSink? sink;
+      try {
+        var got = await part.exists() ? await part.length() : 0;
+        // Cada intento vuelve a pedir la URL de GitHub: el enlace firmado al que redirige caduca.
+        final req = await c.getUrl(url);
+        req.followRedirects = true;
+        req.maxRedirects = 10;
+        if (got > 0) req.headers.set(HttpHeaders.rangeHeader, 'bytes=$got-');
+        final res = await req.close().timeout(const Duration(seconds: 30));
+        if (res.statusCode == 416) {
+          // Ya lo teníamos entero.
+          await res.drain<void>();
+          await origen.delete();
+          return await part.rename(dest.path);
+        }
+        if (res.statusCode != 200 && res.statusCode != 206) {
+          throw InstallError('La descarga ha fallado (HTTP ${res.statusCode}).');
+        }
+        if (res.statusCode == 200) got = 0; // el servidor no admite continuar: desde el principio
+        final total = res.contentLength < 0 ? -1 : got + res.contentLength;
+        sink = part.openWrite(mode: got > 0 ? FileMode.append : FileMode.write);
+        // Si dejan de llegar datos 30 s, se da por cortada y se reintenta.
+        await for (final chunk in res.timeout(const Duration(seconds: 30))) {
+          sink.add(chunk);
+          got += chunk.length;
+          if (total > 0) _set(r, Fase.descargando, p: got / total, force: false);
+        }
+        await sink.close();
+        sink = null;
+        if (total > 0 && got < total) throw const HttpException('Descarga incompleta');
+        if (await dest.exists()) await dest.delete();
+        await origen.delete();
+        return await part.rename(dest.path);
+      } on InstallError {
+        rethrow;
+      } catch (e) {
+        await sink?.close().catchError((_) {});
+        debugPrint('descarga, intento $i: $e');
+        if (i >= intentos) {
+          final hecho = await part.exists() ? await part.length() : 0;
+          throw InstallError(
+            hecho > 0
+                ? 'Se ha cortado la conexión. Pulsa Instalar otra vez y seguirá desde donde se quedó.'
+                : 'No hay conexión para descargar. Comprueba el internet y vuelve a intentarlo.',
+          );
+        }
+        _set(r, Fase.descargando, p: _prog[r.repo], force: true);
+        await Future<void>.delayed(Duration(seconds: (2 * i).clamp(2, 12)));
+      } finally {
+        c.close(force: true);
       }
-      await sink.close();
-      return dest;
-    } finally {
-      c.close();
     }
   }
 
@@ -306,7 +368,9 @@ class Installer extends ChangeNotifier {
     final tmp = Directory('${dir.path}.tmp');
     if (await tmp.exists()) await tmp.delete(recursive: true);
     await tmp.create(recursive: true);
-    final archive = await _descargar(r, url, File('${tmp.path}/$name'));
+    // La descarga va aparte para que, si se corta, el siguiente intento continúe.
+    final descargas = Directory('${dir.path}.descarga');
+    final archive = await _descargar(r, url, File('${descargas.path}/$name'));
 
     _set(r, Fase.preparando);
     if (m.sha256 != null && url.toString().contains(m.file ?? '\u0000')) {
@@ -342,6 +406,7 @@ class Installer extends ChangeNotifier {
     if (await dir.exists()) await dir.delete(recursive: true);
     await out.rename(dir.path);
     await tmp.delete(recursive: true);
+    if (await descargas.exists()) await descargas.delete(recursive: true);
 
     final target = _buscarArranque(dir, m);
     if (target == null) throw InstallError('Descargado, pero no encuentro la app dentro. Ábrelo desde la carpeta.');
