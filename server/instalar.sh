@@ -93,10 +93,14 @@ if ! command -v caddy >/dev/null; then
   dnf -y -q copr enable @caddy/caddy >/dev/null
   dnf -y -q install caddy >/dev/null
 fi
-# Si otro programa (p. ej. SSH) ya usa el 443, HTTPS va por el 8443. El certificado se saca por el 80.
-OCUPA_443="$(ss -ltnpH 2>/dev/null | awk '$4 ~ /:443$/' | grep -v caddy || true)"
+# HTTPS va por el primer puerto libre (443, 9443, 10443…): en algunos VPS el SSH o el panel (Plesk) ya los usan.
+# El certificado se saca por el puerto 80.
+ocupado() { ss -ltnpH 2>/dev/null | awk -v p=":$1\$" '$4 ~ p' | grep -v caddy || true; }
+OCUPA_443="$(ocupado 443)"
 if [ -z "${HTTPS_PORT:-}" ]; then
-  if [ -n "$OCUPA_443" ]; then HTTPS_PORT=8443; else HTTPS_PORT=443; fi
+  for p in 443 9443 10443 11443 12443; do
+    if [ -z "$(ocupado "$p")" ]; then HTTPS_PORT=$p; break; fi
+  done
 fi
 if [ "$HTTPS_PORT" = 443 ]; then
   SITE="$HOST"; GLOBAL=""; URL="https://$HOST"
@@ -105,7 +109,7 @@ else
   SITE="$HOST:$HTTPS_PORT"; GLOBAL="{\n\thttps_port $HTTPS_PORT\n}"; URL="https://$HOST:$HTTPS_PORT"
 fi
 curl -fsSL "$RAW/Caddyfile.tmpl" | sed "s|{{SITE}}|$SITE|; s|{{GLOBAL}}|$GLOBAL|" > /etc/caddy/Caddyfile
-caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1
+caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile 2>&1 | grep -iE 'error|valid configuration' || true
 # En contenedores (OpenVZ/LXC) systemd no puede aislar a Caddy como hace por defecto: se lo quitamos.
 if systemd-detect-virt -cq 2>/dev/null; then
   mkdir -p /etc/systemd/system/caddy.service.d
