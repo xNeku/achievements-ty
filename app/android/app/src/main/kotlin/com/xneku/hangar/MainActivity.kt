@@ -1,5 +1,8 @@
 package com.xneku.hangar
 
+import android.app.AppOpsManager
+import android.app.usage.UsageStatsManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -58,11 +61,41 @@ class MainActivity : FlutterActivity() {
                         startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:$pkg")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                         result.success(true)
                     }
+                    "hasUsage" -> result.success(tieneUso())
+                    "askUsage" -> {
+                        startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        result.success(true)
+                    }
+                    "usage" -> {
+                        // Tiempo en primer plano de cada port desde hace dos años (lo que guarde el sistema).
+                        @Suppress("UNCHECKED_CAST")
+                        val pkgs = call.arguments as List<String>
+                        val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+                        val now = System.currentTimeMillis()
+                        val stats = usm.queryAndAggregateUsageStats(now - 2L * 365 * 24 * 3600 * 1000, now)
+                        val out = HashMap<String, Any>()
+                        for (p in pkgs) {
+                            val s = stats[p] ?: continue
+                            out[p] = mapOf("ms" to s.totalTimeInForeground, "last" to s.lastTimeUsed)
+                        }
+                        result.success(out)
+                    }
                     else -> result.notImplemented()
                 }
             } catch (e: Exception) {
                 result.error("hangar", e.message, null)
             }
         }
+    }
+
+    private fun tieneUso(): Boolean {
+        val ops = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ops.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), packageName)
+        } else {
+            @Suppress("DEPRECATION")
+            ops.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), packageName)
+        }
+        return mode == AppOpsManager.MODE_ALLOWED
     }
 }

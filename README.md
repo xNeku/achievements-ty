@@ -22,11 +22,19 @@ La app descarga la versión de la rama `main` al abrirse, así que **para actual
 
 ## Instalar y jugar
 
-Hace falta tu propia copia de cada juego.
+Hace falta tu propia copia de cada juego (la ROM o el disco).
 
-- **Mac**: Hangar baja el archivo de la release del port en GitHub, comprueba su sha256 cuando el catálogo lo trae, lo descomprime (zip, dmg o tar) en `~/Library/Application Support/Hangar/juegos` y abre la app. Si el port necesita la copia del juego al arrancar, te pide el archivo una vez y lo recuerda. El tiempo de juego se cuenta solo.
-- **Android**: baja el APK de la última release, abre el instalador del sistema y luego abre el juego desde Hangar.
+- **Revisor de ports**: en cada build, `tools/revisar_catalogo.py` mira en GitHub cada repo del catálogo: qué APK publica (Android), cuál es la última descarga para Mac, si está archivado y qué pide su README para jugar. Así Hangar sabe qué juegos se pueden instalar de verdad sin preguntar a GitHub desde el dispositivo.
+- **Android**: descarga el APK, abre el instalador del sistema y luego abre el juego. Con el permiso de «acceso a uso» cuenta cuánto juegas a cada port.
+- **Mac**: descarga la release, comprueba el sha256, descomprime (zip, dmg, tar, 7z o rar), comprueba que tu copia es la que pide el port (IDs del disco o tamaño y CRC de la ROM) y abre la app pasándole tu copia si la necesita. El tiempo de juego se cuenta solo.
+- **Actualizaciones**: si el catálogo trae una versión más nueva que la instalada, aparece «Actualizar» en el panel de versiones. Se conservan tu copia y tu tiempo jugado.
 - Los ports que se preparan a mano muestran sus pasos en el panel de versiones.
+
+## Lo que hace distinto a Hangar
+
+- Android y Mac, en horizontal y con mando (cruceta, A, B, L1 y R1).
+- Logros de Hangar: doce logros que se ganan usando la app (instalar, jugar horas, explorar el catálogo…), con aviso al desbloquearlos.
+- Perfil con tu nombre. Los amigos llegarán con las cuentas en la nube.
 
 ## Estructura
 
@@ -38,6 +46,8 @@ app/                 proyecto Flutter
   lib/installer.dart descargar, instalar y abrir ports (Mac y Android)
   lib/play.dart      botón Jugar y panel de versiones
   lib/pages.dart     logros, amigos y ajustes
+  lib/logros.dart    logros de Hangar y perfil
+tools/revisar_catalogo.py  revisa en GitHub los ports de los catálogos
   lib/data.dart      modelo del catálogo y descarga
 data/juegos*.json    catálogos de Android y Mac
 .github/workflows/   compilación de Android y Mac
@@ -53,4 +63,4 @@ flutter build apk
 flutter build macos    # solo desde un Mac
 ```
 
-Lo que todavía no hace: cuentas, amigos y logros reales, y los ports que se preparan a mano (se muestran sus pasos).
+Lo que todavía no hace: cuentas y amigos en la nube, logros propios de cada juego, ajustes por juego y preparar los ports que se montan a mano (se muestran sus pasos).

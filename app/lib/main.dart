@@ -9,6 +9,7 @@ import 'data.dart';
 import 'home.dart';
 import 'installer.dart';
 import 'library.dart';
+import 'logros.dart';
 import 'pages.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -20,23 +21,25 @@ Future<void> main() async {
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   // Cada sistema tiene su catálogo: los ports de Android no sirven en el Mac y al revés.
   final mac = kIsWeb ? Uri.base.queryParameters.containsKey('mac') : Platform.isMacOS;
-  final store = CatalogStore(mac ? 'juegos-mac.json' : 'juegos.json'), ajustes = Ajustes(), installer = Installer();
-  await Future.wait([store.init(), ajustes.init(), installer.init()]);
-  runApp(HangarApp(store: store, ajustes: ajustes, installer: installer));
+  catalogoMac = mac;
+  final store = CatalogStore(mac ? 'juegos-mac.json' : 'juegos.json'), ajustes = Ajustes(), installer = Installer(), perfil = Perfil();
+  await Future.wait([store.init(), ajustes.init(), installer.init(), perfil.init()]);
+  runApp(HangarApp(store: store, ajustes: ajustes, installer: installer, perfil: perfil));
 }
 
 class HangarApp extends StatelessWidget {
   final CatalogStore store;
   final Ajustes ajustes;
   final Installer installer;
-  const HangarApp({super.key, required this.store, required this.ajustes, required this.installer});
+  final Perfil perfil;
+  const HangarApp({super.key, required this.store, required this.ajustes, required this.installer, required this.perfil});
 
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'Hangar',
     debugShowCheckedModeBanner: false,
     theme: buildTheme(),
-    home: Shell(store: store, ajustes: ajustes, installer: installer),
+    home: Shell(store: store, ajustes: ajustes, installer: installer, perfil: perfil),
   );
 }
 
@@ -49,7 +52,8 @@ class Shell extends StatefulWidget {
   final CatalogStore store;
   final Ajustes ajustes;
   final Installer installer;
-  const Shell({super.key, required this.store, required this.ajustes, required this.installer});
+  final Perfil perfil;
+  const Shell({super.key, required this.store, required this.ajustes, required this.installer, required this.perfil});
   @override
   State<Shell> createState() => _ShellState();
 }
@@ -67,10 +71,73 @@ class _ShellState extends State<Shell> {
   void initState() {
     super.initState();
     _life;
+    widget.installer.addListener(_revisarLogros);
+    widget.perfil.addListener(_revisarLogros);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _revisarLogros());
+  }
+
+  /// Avisa cuando se gana un logro de Hangar.
+  void _revisarLogros() {
+    final nuevos = widget.perfil.revisar(widget.installer);
+    if (nuevos.isEmpty || !mounted) return;
+    for (final h in nuevos) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: C.panel,
+          width: 460,
+          duration: const Duration(seconds: 4),
+          content: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(color: h.color, borderRadius: BorderRadius.circular(12)),
+                child: Icon(h.icon, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'LOGRO DESBLOQUEADO',
+                      style: T.label(size: 10, color: h.color, w: FontWeight.w600),
+                    ),
+                    Text(h.titulo, style: T.sans(size: 15, w: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    setState(() {});
+  }
+
+  /// Mando: L1/R1 cambian de sección y B vuelve a Juegos.
+  KeyEventResult _onKey(FocusNode _, KeyEvent e) {
+    if (e is! KeyDownEvent) return KeyEventResult.ignored;
+    final k = e.logicalKey;
+    final tabs = Tab.values;
+    if (k == LogicalKeyboardKey.gameButtonLeft1 || k == LogicalKeyboardKey.gameButtonRight1) {
+      final i = (_tab.index + (k == LogicalKeyboardKey.gameButtonRight1 ? 1 : -1) + tabs.length) % tabs.length;
+      setState(() => _tab = tabs[i]);
+      return KeyEventResult.handled;
+    }
+    if ((k == LogicalKeyboardKey.gameButtonB || k == LogicalKeyboardKey.escape || k == LogicalKeyboardKey.goBack) && _tab != Tab.juegos) {
+      setState(() => _tab = Tab.juegos);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   @override
   void dispose() {
+    widget.installer.removeListener(_revisarLogros);
+    widget.perfil.removeListener(_revisarLogros);
     _life.dispose();
     _searchFocus.dispose();
     super.dispose();
@@ -80,12 +147,11 @@ class _ShellState extends State<Shell> {
   List<Juego> _selector(List<Juego> all) {
     if (!identical(all, _lastSource)) {
       _lastSource = all;
-      final conHero = all.where((j) => j.hasHero).toList();
+      // Primero los que se pueden instalar aquí, luego los que tienen arte grande.
+      final conHero = all.where((j) => j.hasHero || j.listo).toList();
       int rank(Juego j) {
-        if (j.orden < 9999) return j.orden; // el catálogo ya trae su orden (Mac)
-        final n = j.nombre.toLowerCase();
-        final i = _portada.indexWhere((p) => n.startsWith(p) || n == p);
-        return i < 0 ? 100 + j.orden : i;
+        final base = j.listo ? 0 : 100000;
+        return base + _rank0(j);
       }
 
       conHero.sort((a, b) {
@@ -102,7 +168,15 @@ class _ShellState extends State<Shell> {
     return l.isEmpty ? all : l;
   }
 
+  int _rank0(Juego j) {
+    if (j.orden < 9999) return j.orden; // el catálogo ya trae su orden (Mac)
+    final n = j.nombre.toLowerCase();
+    final i = _portada.indexWhere((p) => n.startsWith(p) || n == p);
+    return i < 0 ? 100 + j.orden + (j.hasHero ? 0 : 20000) : i;
+  }
+
   void _pick(Juego j) {
+    widget.perfil.ver(j.id);
     setState(() {
       _recientes
         ..remove(j.id)
@@ -121,78 +195,94 @@ class _ShellState extends State<Shell> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([widget.store, widget.ajustes, widget.installer]),
+    listenable: Listenable.merge([widget.store, widget.ajustes, widget.installer, widget.perfil]),
     builder: (context, _) {
       final all = widget.store.catalogo.juegos;
       final sel = _selector(all);
       if (_index >= sel.length) _index = 0;
       final byId = {for (final j in all) j.id: j};
       return Scaffold(
-        body: LayoutBuilder(
-          builder: (context, box) {
-            final compact = box.maxHeight < 560;
-            final gap = compact ? 8.0 : 14.0;
-            final railW = compact ? 64.0 : 92.0;
-            return Padding(
-              padding: EdgeInsets.all(gap),
-              child: Container(
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: C.card,
-                  borderRadius: BorderRadius.circular(compact ? 20 : 30),
-                  border: Border.all(color: const Color(0x0FFFFFFF)),
-                  boxShadow: const [BoxShadow(color: Color(0xA6000000), blurRadius: 80, offset: Offset(0, 30))],
-                ),
-                // El arte del juego llega hasta el borde; la barra flota encima como cristal.
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: IndexedStack(
-                        index: _tab.index,
-                        children: [
-                          HomeScreen(
-                            inset: railW,
-                            juegos: sel,
-                            installer: widget.installer,
-                            index: _index,
-                            onIndex: (i) => setState(() => _index = i),
-                            active: _tab == Tab.juegos,
-                            chispas: widget.ajustes.chispas,
-                            vibracion: widget.ajustes.vibracion,
-                            onLibrary: () => setState(() => _tab = Tab.biblioteca),
-                            onSearch: _search,
-                          ),
-                          for (final page in [
-                            LibraryScreen(
-                              juegos: all,
-                              destacados: {for (final j in _destacados) j.id},
-                              recientes: _recientes,
-                              searchFocus: _searchFocus,
-                              onPick: _pick,
+        body: Focus(
+          onKeyEvent: _onKey,
+          child: LayoutBuilder(
+            builder: (context, box) {
+              final compact = box.maxHeight < 560;
+              final gap = compact ? 8.0 : 14.0;
+              final railW = compact ? 64.0 : 92.0;
+              return Padding(
+                padding: EdgeInsets.all(gap),
+                child: Container(
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: C.card,
+                    borderRadius: BorderRadius.circular(compact ? 20 : 30),
+                    border: Border.all(color: const Color(0x0FFFFFFF)),
+                    boxShadow: const [BoxShadow(color: Color(0xA6000000), blurRadius: 80, offset: Offset(0, 30))],
+                  ),
+                  // El arte del juego llega hasta el borde; la barra flota encima como cristal.
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: IndexedStack(
+                          index: _tab.index,
+                          children: [
+                            HomeScreen(
+                              inset: railW,
+                              juegos: sel,
+                              installer: widget.installer,
+                              index: _index,
+                              onIndex: (i) {
+                                widget.perfil.ver(sel[i].id);
+                                setState(() => _index = i);
+                              },
+                              active: _tab == Tab.juegos,
+                              chispas: widget.ajustes.chispas,
+                              vibracion: widget.ajustes.vibracion,
+                              onLibrary: () => setState(() => _tab = Tab.biblioteca),
+                              onSearch: _search,
                             ),
-                            LogrosScreen(recientes: _recientes.map((id) => byId[id]).whereType<Juego>().toList(), onPick: _pick),
-                            const AmigosScreen(),
-                            AjustesScreen(store: widget.store, ajustes: widget.ajustes),
-                          ])
-                            Padding(
-                              padding: EdgeInsets.only(left: railW),
-                              child: page,
-                            ),
-                        ],
+                            for (final page in [
+                              LibraryScreen(
+                                juegos: all,
+                                destacados: {for (final j in _destacados) j.id},
+                                recientes: _recientes,
+                                instalados: {
+                                  for (final j in all)
+                                    for (final r in j.repos)
+                                      if (widget.installer.instalado(r) != null) r.repo,
+                                },
+                                searchFocus: _searchFocus,
+                                onPick: _pick,
+                              ),
+                              LogrosScreen(
+                                perfil: widget.perfil,
+                                installer: widget.installer,
+                                recientes: _recientes.map((id) => byId[id]).whereType<Juego>().toList(),
+                                onPick: _pick,
+                              ),
+                              AmigosScreen(perfil: widget.perfil),
+                              AjustesScreen(store: widget.store, ajustes: widget.ajustes, perfil: widget.perfil, installer: widget.installer),
+                            ])
+                              Padding(
+                                padding: EdgeInsets.only(left: railW),
+                                child: page,
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      width: railW,
-                      child: _Rail(tab: _tab, compact: compact, onTab: (t) => setState(() => _tab = t)),
-                    ),
-                  ],
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: railW,
+                        child: _Rail(tab: _tab, compact: compact, letra: widget.perfil.inicial, onTab: (t) => setState(() => _tab = t)),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       );
     },
@@ -204,7 +294,8 @@ class _Rail extends StatelessWidget {
   final Tab tab;
   final bool compact;
   final ValueChanged<Tab> onTab;
-  const _Rail({required this.tab, required this.compact, required this.onTab});
+  final String letra;
+  const _Rail({required this.tab, required this.compact, required this.letra, required this.onTab});
 
   @override
   Widget build(BuildContext context) {
@@ -259,7 +350,7 @@ class _Rail extends StatelessWidget {
           ),
           child: Column(
             children: [
-              Avatar(size: compact ? 38 : 52),
+              Avatar(letter: letra, size: compact ? 38 : 52),
               const Spacer(),
               b(Tab.juegos, Icons.sports_esports_outlined, Icons.sports_esports, 'Juegos'),
               gap,

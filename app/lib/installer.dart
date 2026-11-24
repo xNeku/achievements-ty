@@ -91,6 +91,7 @@ class Installer extends ChangeNotifier {
     }
     _save();
     notifyListeners();
+    await leerUso();
   }
 
   void _save() => _p?.setString('instalados', jsonEncode(_hechos.map((k, v) => MapEntry(k, v.toJson()))));
@@ -102,6 +103,22 @@ class Installer extends ChangeNotifier {
 
   /// Se puede instalar aquí: en el Mac hace falta que el catálogo diga qué archivo bajar.
   bool instalable(Repo r) => esAndroid || (esMac && r.mac?.asset != null);
+
+  /// Hay una versión más nueva en el catálogo que la instalada.
+  bool hayActualizacion(Repo r) {
+    final rec = _hechos[r.repo], v = r.version;
+    if (rec == null || v == null || rec.version.isEmpty) return false;
+    String n(String x) => x.toLowerCase().replaceFirst(RegExp(r'^v'), '').trim();
+    return n(rec.version) != n(v);
+  }
+
+  /// Contadores para los logros de Hangar.
+  int get instalacionesTotales => _p?.getInt('stat_instalaciones') ?? 0;
+  int get sesionesTotales => _p?.getInt('stat_sesiones') ?? 0;
+  int get segundosTotales => _hechos.values.fold(0, (s, r) => s + r.segundos);
+  int get instaladosAhora => _hechos.length;
+  int get juegosJugados => _hechos.values.where((r) => r.ultima != null).length;
+  void _contar(String k) => _p?.setInt(k, (_p?.getInt(k) ?? 0) + 1);
 
   int segundos(Juego j) => j.repos.fold(0, (s, r) => s + (_hechos[r.repo]?.segundos ?? 0));
   DateTime? ultima(Juego j) {
@@ -117,6 +134,9 @@ class Installer extends ChangeNotifier {
   Repo? principal(Juego j) {
     for (final r in j.repos) {
       if (_hechos.containsKey(r.repo) || _fase[r.repo] == Fase.descargando || _fase[r.repo] == Fase.preparando) return r;
+    }
+    for (final r in j.repos) {
+      if (r.listo) return r;
     }
     for (final r in j.repos) {
       if (instalable(r)) return r;
@@ -155,10 +175,27 @@ class Installer extends ChangeNotifier {
     if (_fase[r.repo] == Fase.descargando || _fase[r.repo] == Fase.preparando) return;
     _set(r, Fase.descargando, p: 0);
     try {
+      final antes = _hechos[r.repo];
       if (esMac) {
         await _instalarMac(r);
       } else {
         await _instalarAndroid(r);
+      }
+      // Al actualizar se conservan tu copia del juego y tu tiempo jugado.
+      final nuevo = _hechos[r.repo];
+      if (antes != null && nuevo != null) {
+        _hechos[r.repo] = Instalado(
+          dir: nuevo.dir,
+          target: nuevo.target,
+          version: nuevo.version,
+          copia: antes.copia,
+          paquete: nuevo.paquete,
+          segundos: antes.segundos,
+          ultima: antes.ultima,
+        );
+        _save();
+      } else {
+        _contar('stat_instalaciones');
       }
       _clear(r);
     } catch (e) {
@@ -170,6 +207,9 @@ class Installer extends ChangeNotifier {
 
   Future<Uri> _resolver(Repo r, {required bool apk}) async {
     final m = r.mac;
+    // Lo normal: el revisor del catálogo ya encontró el archivo en GitHub.
+    if (apk && r.android != null) return Uri.parse(r.android!.url);
+    if (!apk && m?.url != null) return Uri.parse(m!.url!);
     if (!apk && m?.file != null && m?.tag != null) {
       return Uri.parse('https://github.com/${r.repo}/releases/download/${Uri.encodeComponent(m!.tag!)}/${Uri.encodeComponent(m.file!)}');
     }
@@ -253,7 +293,6 @@ class Installer extends ChangeNotifier {
     final url = await _resolver(r, apk: false);
     final name = Uri.decodeComponent(url.pathSegments.last);
     final lower = name.toLowerCase();
-    if (lower.endsWith('.rar') || lower.endsWith('.7z')) throw InstallError('Esta versión viene en ${lower.split('.').last.toUpperCase()}; Hangar todavía no sabe abrirla.');
     final dir = Directory(_dirMac(r));
     final tmp = Directory('${dir.path}.tmp');
     if (await tmp.exists()) await tmp.delete(recursive: true);
@@ -280,7 +319,8 @@ class Installer extends ChangeNotifier {
       } finally {
         await Process.run('hdiutil', ['detach', mnt.path, '-force']);
       }
-    } else if (lower.contains('.tar')) {
+    } else if (lower.contains('.tar') || lower.endsWith('.7z') || lower.endsWith('.rar') || lower.endsWith('.tgz')) {
+      // bsdtar (el tar del Mac) abre también 7z y rar.
       await _run('tar', ['-xf', archive.path, '-C', out.path]);
     } else {
       // Un ejecutable suelto
@@ -296,7 +336,7 @@ class Installer extends ChangeNotifier {
 
     final target = _buscarArranque(dir, m);
     if (target == null) throw InstallError('Descargado, pero no encuentro la app dentro. Ábrelo desde la carpeta.');
-    _hechos[r.repo] = Instalado(dir: dir.path, target: target, version: m.version ?? m.tag ?? '');
+    _hechos[r.repo] = Instalado(dir: dir.path, target: target, version: m.tag ?? m.version ?? '');
     _save();
   }
 
@@ -340,7 +380,8 @@ class Installer extends ChangeNotifier {
     final pkg = await _android.invokeMethod<String>('packageOf', apk.path);
     if (pkg == null) throw InstallError('El APK descargado no es válido.');
     final segs = url.pathSegments;
-    _hechos[r.repo] = Instalado(dir: cache.path, target: apk.path, version: segs.length > 2 ? Uri.decodeComponent(segs[segs.length - 2]) : '', paquete: pkg);
+    final version = r.android?.tag ?? (segs.length > 2 ? Uri.decodeComponent(segs[segs.length - 2]) : '');
+    _hechos[r.repo] = Instalado(dir: cache.path, target: apk.path, version: version, paquete: pkg);
     _save();
     final ok = await _android.invokeMethod<bool>('install', apk.path);
     if (ok != true) throw InstallError('Permite a Hangar instalar apps y vuelve a pulsar Instalar.');
@@ -352,6 +393,12 @@ class Installer extends ChangeNotifier {
   Future<String?> elegirCopia(Repo r) async {
     final f = await openFile(confirmButtonText: 'Usar esta copia');
     if (f == null) return null;
+    final aviso = await comprobarCopia(r, f.path);
+    if (aviso == null) {
+      avisoCopia.remove(r.repo);
+    } else {
+      avisoCopia[r.repo] = aviso;
+    }
     final rec = _hechos[r.repo];
     if (rec != null) {
       _hechos[r.repo] = rec.copyWith(copia: f.path);
@@ -365,6 +412,7 @@ class Installer extends ChangeNotifier {
     final rec = _hechos[r.repo];
     if (rec == null) return instalar(r);
     final m = r.mac;
+    _contar('stat_sesiones');
     if (esAndroid) {
       _hechos[r.repo] = rec.copyWith(ultima: DateTime.now());
       _save();
@@ -424,4 +472,80 @@ class Installer extends ChangeNotifier {
     _save();
     notifyListeners();
   }
+
+  // ───────────────────────── comprobar tu copia (Mac) ─────────────────────────
+
+  /// Mira si el archivo elegido es la copia que espera el port. Devuelve un aviso o null si encaja.
+  Future<String?> comprobarCopia(Repo r, String path) async {
+    final m = r.mac;
+    if (m == null) return null;
+    final f = File(path);
+    if (!await f.exists()) return 'No encuentro el archivo.';
+    final ext = path.toLowerCase().split('.').last;
+    if (m.ids.isNotEmpty && (ext == 'iso' || ext == 'gcm')) {
+      final raf = await f.open();
+      final head = String.fromCharCodes(await raf.read(6));
+      await raf.close();
+      if (!m.ids.any((id) => head.startsWith(id))) return 'Este disco no parece el que pide el port (ID $head; vale ${m.ids.join(', ')}).';
+    }
+    if (m.dumps.isNotEmpty) {
+      final size = await f.length();
+      final mismos = m.dumps.where((d) => d.size == size).toList();
+      if (mismos.isEmpty) return 'El tamaño no coincide con ninguna versión válida (${m.dumps.map((d) => d.name).join(', ')}).';
+      if (size <= 256 * 1024 * 1024) {
+        final crc = (await _crc32(f)).toRadixString(16).toUpperCase().padLeft(8, '0');
+        if (!mismos.any((d) => d.crc32 == crc)) return 'La ROM no coincide con la versión que pide el port (CRC $crc).';
+      }
+    }
+    return null;
+  }
+
+  static List<int>? _tabla;
+  Future<int> _crc32(File f) async {
+    final t = _tabla ??= List.generate(256, (n) {
+      var c = n;
+      for (var k = 0; k < 8; k++) {
+        c = (c & 1) != 0 ? 0xEDB88320 ^ (c >> 1) : c >> 1;
+      }
+      return c;
+    });
+    var crc = 0xFFFFFFFF;
+    await for (final chunk in f.openRead()) {
+      for (final b in chunk) {
+        crc = t[(crc ^ b) & 0xFF] ^ (crc >> 8);
+      }
+    }
+    return crc ^ 0xFFFFFFFF;
+  }
+
+  /// Avisos de la última copia elegida, por port.
+  final Map<String, String> avisoCopia = {};
+
+  // ───────────────────────── tiempo de juego en Android ─────────────────────────
+
+  bool permisoUso = false;
+
+  /// Lee del sistema cuánto has jugado a cada port instalado (necesita el permiso de uso).
+  Future<void> leerUso() async {
+    if (!esAndroid) return;
+    permisoUso = await _android.invokeMethod<bool>('hasUsage') == true;
+    if (!permisoUso) return notifyListeners();
+    final pkgs = [for (final r in _hechos.values) if (r.paquete != null) r.paquete!];
+    if (pkgs.isEmpty) return notifyListeners();
+    final res = await _android.invokeMapMethod<String, dynamic>('usage', pkgs) ?? const {};
+    for (final e in _hechos.entries.toList()) {
+      final u = res[e.value.paquete] as Map?;
+      if (u == null) continue;
+      final secs = ((u['ms'] as num?) ?? 0) ~/ 1000;
+      final last = (u['last'] as num?)?.toInt() ?? 0;
+      _hechos[e.key] = e.value.copyWith(
+        segundos: secs > e.value.segundos ? secs : e.value.segundos,
+        ultima: last > 0 ? DateTime.fromMillisecondsSinceEpoch(last) : e.value.ultima,
+      );
+    }
+    _save();
+    notifyListeners();
+  }
+
+  Future<void> pedirPermisoUso() => _android.invokeMethod('askUsage');
 }

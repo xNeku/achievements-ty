@@ -7,14 +7,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// El catálogo vive en el repo, uno por sistema. La app usa la última copia descargada y,
 /// si no hay, la que viene dentro de la app.
-String catalogUrl(String file) => 'https://raw.githubusercontent.com/xNeku/achievements-ty/main/data/$file';
+/// Primero el de `main`; si aún no está, el de la última build publicada.
+List<String> catalogUrls(String file) => [
+      'https://raw.githubusercontent.com/xNeku/achievements-ty/main/data/$file',
+      'https://github.com/xNeku/achievements-ty/releases/latest/download/$file',
+    ];
+
+/// Este dispositivo usa el catálogo de Mac (si no, el de Android).
+bool catalogoMac = false;
 
 const tipoLabel = {'recomp': 'Recomp', 'decomp': 'Decomp', 'source-port': 'Source port', 'emulator': 'Emulador'};
 
 /// Cómo se instala y arranca un port en el Mac (sale del catálogo de RecompLauncher).
 class MacInfo {
-  final String? tag, asset, file, sha256, version, size, necesita, aviso, juegoTipo, juegoTexto;
-  final List<String> pasos, programa, args;
+  final String? tag, asset, file, sha256, version, size, necesita, aviso, juegoTipo, juegoTexto, url;
+  final List<String> pasos, programa, args, ids;
+  /// Volcados válidos de la ROM: tamaño en bytes y CRC32 en hexadecimal.
+  final List<({String name, int size, String crc32})> dumps;
   const MacInfo({
     this.tag,
     this.asset,
@@ -26,6 +35,9 @@ class MacInfo {
     this.aviso,
     this.juegoTipo,
     this.juegoTexto,
+    this.url,
+    this.ids = const [],
+    this.dumps = const [],
     this.pasos = const [],
     this.programa = const [],
     this.args = const [],
@@ -45,6 +57,12 @@ class MacInfo {
       aviso: j['aviso'],
       juegoTipo: juego?['tipo'],
       juegoTexto: juego?['texto'],
+      url: j['url'],
+      ids: strs((j['check'] as Map?)?['ids']),
+      dumps: [
+        for (final d in ((j['check'] as Map?)?['dumps'] as List? ?? const []))
+          (name: '${d['name'] ?? ''}', size: (d['size'] as num?)?.toInt() ?? 0, crc32: '${d['crc32'] ?? ''}'.toUpperCase()),
+      ],
       pasos: strs(j['pasos']),
       programa: strs(j['programa']),
       args: strs(j['args']),
@@ -55,12 +73,36 @@ class MacInfo {
   bool get pideCopia => args.any((a) => a.contains('{game}'));
 }
 
+/// El APK que publica un port de Android (lo encuentra el revisor del catálogo en GitHub).
+class AndroidInfo {
+  final String tag, apk, url;
+  final int size;
+  final bool pre;
+  const AndroidInfo({required this.tag, required this.apk, required this.url, this.size = 0, this.pre = false});
+  factory AndroidInfo.fromJson(Map<String, dynamic> j) =>
+      AndroidInfo(tag: '${j['tag']}', apk: '${j['apk']}', url: '${j['url']}', size: (j['size'] as num?)?.toInt() ?? 0, pre: j['pre'] == true);
+  String get tamano => size <= 0 ? '' : size > 1e9 ? '${(size / 1e9).toStringAsFixed(1)} GB' : '${(size / 1e6).round()} MB';
+}
+
 class Repo {
   final String repo, url, tipo;
   final MacInfo? mac;
-  const Repo(this.repo, this.url, this.tipo, {this.mac});
+  final AndroidInfo? android;
+  final List<String> requisitos;
+  final bool archivado;
+  final String? estado;
+  const Repo(this.repo, this.url, this.tipo, {this.mac, this.android, this.requisitos = const [], this.archivado = false, this.estado});
   String get owner => repo.split('/').first;
   String get name => repo.split('/').last;
+
+  /// Se puede instalar desde Hangar en este dispositivo.
+  bool get listo => catalogoMac ? mac?.asset != null : android != null;
+
+  /// Versión que ofrece el catálogo para este dispositivo.
+  String? get version => catalogoMac ? (mac?.tag ?? mac?.version) : android?.tag;
+
+  /// Aviso de mantenimiento, si lo hay.
+  String? get aviso => estado ?? (archivado ? 'archivado' : null);
 }
 
 class Arte {
@@ -108,7 +150,11 @@ class Juego {
       notas: strs(j['notas']),
       repos: (j['repos'] as List? ?? const [])
           .map((r) => Repo('${r['repo']}', '${r['url'] ?? 'https://github.com/${r['repo']}'}', '${r['tipo'] ?? ''}',
-              mac: r['mac'] is Map<String, dynamic> ? MacInfo.fromJson(r['mac']) : null))
+              mac: r['mac'] is Map<String, dynamic> ? MacInfo.fromJson(r['mac']) : null,
+              android: r['android'] is Map<String, dynamic> ? AndroidInfo.fromJson(r['android']) : null,
+              requisitos: strs(r['requisitos']),
+              archivado: r['archivado'] == true,
+              estado: r['estado']))
           .toList(),
       arte: j['arte'] is Map<String, dynamic> ? Arte.fromJson(j['arte']) : null,
     );
@@ -120,6 +166,8 @@ class Juego {
   String? get heroSmall => arte?.heroThumb ?? arte?.hero;
   String? get logo => arte?.logo ?? arte?.logoThumb;
   bool get hasHero => hero != null;
+  /// Algún port se puede instalar en este dispositivo.
+  bool get listo => repos.any((r) => r.listo);
   bool get dudoso => confianza == 'baja';
   String get tiposTexto => tipos.map((t) => tipoLabel[t] ?? t).join(' · ');
   String get subtitulo => proyectos.where((p) => p.toLowerCase() != nombre.toLowerCase()).join(' · ');
@@ -154,15 +202,15 @@ class CatalogStore extends ChangeNotifier {
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     final cached = prefs.getString(_kRaw);
-    if (cached != null) {
+    final bundled = await rootBundle.loadString('assets/$file');
+    // La copia descargada solo gana si es igual o más reciente que la que trae la app.
+    String revisado(String raw) => RegExp(r'"revisado"\s*:\s*"([^"]+)"').firstMatch(raw.substring(0, raw.length < 1500 ? raw.length : 1500))?.group(1) ?? '';
+    if (cached != null && revisado(cached).compareTo(revisado(bundled)) >= 0) {
       try {
         catalogo = Catalogo(Catalogo.parse(cached), 'GitHub', DateTime.tryParse(prefs.getString(_kWhen) ?? ''));
       } catch (_) {}
     }
-    if (catalogo.juegos.isEmpty) {
-      final raw = await rootBundle.loadString('assets/$file');
-      catalogo = Catalogo(Catalogo.parse(raw), 'integrado', null);
-    }
+    if (catalogo.juegos.isEmpty) catalogo = Catalogo(Catalogo.parse(bundled), 'integrado', null);
     notifyListeners();
     refresh();
   }
@@ -173,9 +221,17 @@ class CatalogStore extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
-      final r = await http.get(Uri.parse(catalogUrl(file))).timeout(const Duration(seconds: 12));
-      if (r.statusCode != 200) throw 'HTTP ${r.statusCode}';
-      final body = utf8.decode(r.bodyBytes);
+      String? body;
+      for (final u in catalogUrls(file)) {
+        try {
+          final r = await http.get(Uri.parse(u)).timeout(const Duration(seconds: 15));
+          if (r.statusCode == 200) {
+            body = utf8.decode(r.bodyBytes);
+            break;
+          }
+        } catch (_) {}
+      }
+      if (body == null) throw 'sin conexión con GitHub';
       final juegos = Catalogo.parse(body);
       if (juegos.isEmpty) throw 'catálogo vacío';
       final now = DateTime.now();

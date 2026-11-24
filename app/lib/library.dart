@@ -9,9 +9,19 @@ class LibraryScreen extends StatefulWidget {
   final List<Juego> juegos;
   final Set<String> destacados;
   final List<String> recientes;
+  /// Repos instalados en este dispositivo.
+  final Set<String> instalados;
   final FocusNode searchFocus;
   final ValueChanged<Juego> onPick;
-  const LibraryScreen({super.key, required this.juegos, required this.destacados, required this.recientes, required this.searchFocus, required this.onPick});
+  const LibraryScreen({
+    super.key,
+    required this.juegos,
+    required this.destacados,
+    required this.recientes,
+    required this.instalados,
+    required this.searchFocus,
+    required this.onPick,
+  });
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -41,6 +51,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
     switch (_col) {
       case 'arte':
         l = l.where((j) => j.cover != null);
+      case 'listos':
+        l = l.where((j) => j.listo);
+      case 'instalados':
+        l = l.where((j) => j.repos.any((r) => widget.instalados.contains(r.repo)));
       case 'destacados':
         l = l.where((j) => widget.destacados.contains(j.id));
       case 'recientes':
@@ -62,8 +76,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
       case 'az':
         out.sort(az);
       default:
+        // Primero lo que se puede instalar aquí, luego lo que tiene portada.
+        int peso(Juego j) => (j.listo ? 2 : 0) + (j.cover != null ? 1 : 0);
         out.sort((a, b) {
-          final d = (b.cover != null ? 1 : 0) - (a.cover != null ? 1 : 0);
+          final d = peso(b) - peso(a);
           return d != 0 ? d : az(a, b);
         });
     }
@@ -83,7 +99,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 child: Row(children: [
                   Expanded(child: _SearchField(controller: _q, focus: widget.searchFocus, total: widget.juegos.length)),
                   const SizedBox(width: 12),
-                  if (narrow) _menu('Colección', _col, const {'todos': 'Todos', 'arte': 'Con portada', 'destacados': 'Destacados', 'recientes': 'Recientes'}, (v) => _col = v),
+                  if (narrow) _menu('Colección', _col, const {'todos': 'Todos', 'listos': 'Listos para jugar', 'instalados': 'Instalados', 'arte': 'Con portada', 'recientes': 'Recientes'}, (v) => _col = v),
                   if (narrow) const SizedBox(width: 12),
                   _menu('Tipo', _tipo ?? '', {'': 'Todos', ...tipoLabel}, (v) => _tipo = v.isEmpty ? null : v),
                   const SizedBox(width: 12),
@@ -102,7 +118,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           crossAxisSpacing: compact ? 12 : 18,
                         ),
                         itemCount: list.length,
-                        itemBuilder: (context, i) => _Tile(list[i], onTap: () => widget.onPick(list[i])),
+                        itemBuilder: (context, i) => _Tile(
+                          list[i],
+                          instalado: list[i].repos.any((r) => widget.instalados.contains(r.repo)),
+                          onTap: () => widget.onPick(list[i]),
+                        ),
                       ),
               ),
             ]),
@@ -192,6 +212,9 @@ class _Side extends StatelessWidget {
                   state._col = 'todos';
                   state._tipo = null;
                 })),
+            item('Listos para jugar', w.juegos.where((j) => j.listo).length, state._col == 'listos', () => state._upd(() => state._col = 'listos')),
+            item('Instalados', w.juegos.where((j) => j.repos.any((r) => w.instalados.contains(r.repo))).length, state._col == 'instalados',
+                () => state._upd(() => state._col = 'instalados')),
             item('Con portada', w.juegos.where((j) => j.cover != null).length, state._col == 'arte', () => state._upd(() => state._col = 'arte')),
             item('Destacados', w.destacados.length, state._col == 'destacados', () => state._upd(() => state._col = 'destacados')),
             item('Recientes', w.recientes.length, state._col == 'recientes', () => state._upd(() => state._col = 'recientes')),
@@ -245,39 +268,61 @@ class _SearchField extends StatelessWidget {
 
 class _Tile extends StatefulWidget {
   final Juego j;
+  final bool instalado;
   final VoidCallback onTap;
-  const _Tile(this.j, {required this.onTap});
+  const _Tile(this.j, {required this.instalado, required this.onTap});
   @override
   State<_Tile> createState() => _TileState();
 }
 
+/// Portada que se puede elegir con el dedo, el ratón o el mando (se ilumina al tener el foco).
 class _TileState extends State<_Tile> {
-  bool _hover = false;
+  bool _on = false;
   @override
-  Widget build(BuildContext context) => Semantics(
-        button: true,
-        label: widget.j.nombre,
-        child: MouseRegion(
-          onEnter: (_) => setState(() => _hover = true),
-          onExit: (_) => setState(() => _hover = false),
-          child: GestureDetector(
-            onTap: widget.onTap,
-            child: AnimatedScale(
-              scale: _hover ? 1.03 : 1,
-              duration: const Duration(milliseconds: 200),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _hover ? C.pink : Colors.transparent, width: 2),
-                  boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 24, offset: Offset(0, 12))],
-                ),
-                child: Cover(widget.j, radius: 14),
-              ),
+  Widget build(BuildContext context) {
+    final chip = widget.instalado ? ('INSTALADO', C.ok) : (widget.j.listo ? ('LISTO', C.pink) : null);
+    return Semantics(
+      button: true,
+      label: widget.j.nombre,
+      child: InkWell(
+        onTap: widget.onTap,
+        onHover: (v) => setState(() => _on = v),
+        onFocusChange: (v) => setState(() => _on = v),
+        borderRadius: BorderRadius.circular(16),
+        focusColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        child: AnimatedScale(
+          scale: _on ? 1.04 : 1,
+          duration: const Duration(milliseconds: 200),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _on ? C.pink : Colors.transparent, width: 2),
+              boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 24, offset: Offset(0, 12))],
             ),
+            child: Stack(fit: StackFit.expand, children: [
+              Cover(widget.j, radius: 14),
+              if (chip != null)
+                Positioned(
+                  left: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(color: const Color(0xCC0E0A0D), borderRadius: BorderRadius.circular(6)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Container(width: 6, height: 6, decoration: BoxDecoration(color: chip.$2, shape: BoxShape.circle)),
+                      const SizedBox(width: 5),
+                      Text(chip.$1, style: T.label(size: 9, color: C.ink, w: FontWeight.w600)),
+                    ]),
+                  ),
+                ),
+            ]),
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _Empty extends StatelessWidget {

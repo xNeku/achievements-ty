@@ -15,7 +15,7 @@ Future<void> playAction(BuildContext context, Juego g, Installer ins) async {
   if (f == Fase.descargando || f == Fase.preparando || f == Fase.jugando) return showPlaySheet(context, g, ins);
   if (f == Fase.listo) {
     await ins.jugar(r);
-  } else if (g.repos.length > 1 || !ins.instalable(r) || (r.mac?.pasos.isNotEmpty ?? false)) {
+  } else if (g.repos.length > 1 || !ins.instalable(r) || (ins.esAndroid && !r.listo) || (r.mac?.pasos.isNotEmpty ?? false)) {
     return showPlaySheet(context, g, ins);
   } else {
     await ins.instalar(r);
@@ -49,7 +49,11 @@ class PlayButton extends StatelessWidget {
       Fase.preparando => ('Preparando', Icons.hourglass_top_rounded),
       Fase.jugando => ('Jugando', Icons.sports_esports_rounded),
       Fase.listo => ('Jugar', Icons.play_arrow_rounded),
-      Fase.nada => (installer.soportado ? 'Instalar' : 'Descargar', Icons.download_rounded),
+      Fase.nada => !installer.soportado
+          ? ('Descargar', Icons.download_rounded)
+          : (installer.esMac || (r?.listo ?? false))
+              ? ('Instalar', Icons.download_rounded)
+              : ('Versiones', Icons.list_rounded),
     };
     return Stack(children: [
       PlayPill(onTap: onTap, label: label, icon: icon, compact: compact),
@@ -94,9 +98,11 @@ Future<void> showPlaySheet(BuildContext context, Juego g, Installer ins) => show
                   ]),
                   const SizedBox(height: 8),
                   Text(
-                    ins.soportado
-                        ? 'Necesitas tu propia copia del juego. Hangar descarga el port de su página de GitHub, lo prepara y lo abre.'
-                        : 'Desde aquí se abre la página de descargas del port en GitHub.',
+                    !ins.soportado
+                        ? 'Desde aquí se abre la página de descargas del port en GitHub.'
+                        : ins.esMac
+                            ? 'Necesitas tu propia copia del juego. Hangar descarga el port de GitHub, lo prepara y lo abre.'
+                            : 'Necesitas tu propia copia del juego (la ROM o el disco, en tu tablet). Hangar instala el port y lo abre; la primera vez el juego te pedirá elegir ese archivo.',
                     style: T.sans(size: 14, color: C.ink2, height: 1.5),
                   ),
                   const SizedBox(height: 24),
@@ -121,12 +127,16 @@ class _RepoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final f = ins.fase(r), m = r.mac, rec = ins.instalado(r), err = ins.error(r);
+    final a = r.android;
     final meta = [
       r.owner,
       tipoLabel[r.tipo] ?? r.tipo,
-      if (m?.version != null) 'v${m!.version}',
-      if (m?.size != null) m!.size!,
+      if (r.version != null) r.version!,
+      if (ins.esMac && m?.size != null) m!.size!,
+      if (!ins.esMac && a != null && a.tamano.isNotEmpty) a.tamano,
+      if (!ins.esMac && a != null && a.pre) 'pre-release',
     ].join(' · ');
+    final upd = ins.hayActualizacion(r);
     Widget small(String t, {Color color = C.ink2}) => Padding(padding: const EdgeInsets.only(top: 8), child: Text(t, style: T.sans(size: 13, color: color, height: 1.45)));
 
     Widget primary;
@@ -147,9 +157,19 @@ class _RepoRow extends StatelessWidget {
       case Fase.jugando:
         primary = Text('JUGANDO', style: T.label(size: 12, color: C.ok, w: FontWeight.w600));
       case Fase.listo:
-        primary = PlayPill(onTap: () => ins.jugar(r), compact: true);
+        primary = upd
+            ? Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                PlayPill(onTap: () => ins.jugar(r), compact: true),
+                const SizedBox(height: 6),
+                TextButton.icon(
+                  onPressed: () => ins.instalar(r),
+                  icon: const Icon(Icons.system_update_alt_rounded, size: 16, color: C.ok),
+                  label: Text('ACTUALIZAR A ${r.version}', style: T.label(size: 10, color: C.ok, w: FontWeight.w600)),
+                ),
+              ])
+            : PlayPill(onTap: () => ins.jugar(r), compact: true);
       case Fase.nada:
-        primary = ins.instalable(r)
+        primary = ins.instalable(r) && (ins.esMac || r.listo)
             ? PlayPill(onTap: () => ins.instalar(r), label: 'Instalar', icon: Icons.download_rounded, compact: true)
             : TextButton(
                 onPressed: () => launchUrl(Uri.parse('${r.url}/releases'), mode: LaunchMode.externalApplication),
@@ -171,8 +191,16 @@ class _RepoRow extends StatelessWidget {
           const SizedBox(width: 12),
           primary,
         ]),
+        if (r.aviso != null) small('Este proyecto está ${r.aviso}: puede que no reciba más arreglos.', color: const Color(0xFFE9B949)),
+        if (!ins.esMac && !r.listo && ins.esAndroid) small('No publica un APK en GitHub, así que no se puede instalar desde aquí. Mira su página por si hay que compilarlo.'),
         if (err != null) small(err, color: const Color(0xFFFF8A80)),
+        if (ins.avisoCopia[r.repo] != null) small(ins.avisoCopia[r.repo]!, color: const Color(0xFFE9B949)),
         if (m?.aviso != null) small(m!.aviso!) else if (m?.necesita != null) small(m!.necesita!),
+        if (r.requisitos.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text('LO QUE PIDE PARA JUGAR', style: T.label(size: 10, color: C.ink3, w: FontWeight.w600)),
+          for (final q in r.requisitos) small('· $q'),
+        ],
         if (rec != null && m != null && m.pideCopia)
           Padding(
             padding: const EdgeInsets.only(top: 10),
