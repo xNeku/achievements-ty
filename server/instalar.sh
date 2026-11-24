@@ -29,13 +29,23 @@ dnf -y -q install curl unzip tar dnf-plugins-core policycoreutils-python-utils >
 paso "Memoria de intercambio (1 GB) para que 2 GB de RAM vayan holgados"
 if swapon --show | grep -q .; then
   echo "Ya hay swap activo."
+elif systemd-detect-virt -cq 2>/dev/null; then
+  echo "El VPS es un contenedor ($(systemd-detect-virt -c)) y no permite swap: seguimos sin él (2 GB bastan)."
 else
   [ -f /swapfile ] || fallocate -l 1G /swapfile
   chmod 600 /swapfile
   mkswap /swapfile >/dev/null
-  swapon /swapfile
-  grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
-  echo "Swap activado: $(swapon --show --noheadings | awk '{print $1, $3}')"
+  if swapon /swapfile 2>/dev/null; then
+    grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+    echo "Swap activado."
+  else
+    echo "Este VPS no permite swap: seguimos sin él (2 GB bastan)."
+  fi
+fi
+# Si el swap no se pudo activar, no dejamos restos (ni el archivo ni la línea en /etc/fstab).
+if ! swapon --show 2>/dev/null | grep -q '^/swapfile'; then
+  sed -i '\|^/swapfile |d' /etc/fstab
+  rm -f /swapfile
 fi
 
 paso "Usuario y carpetas"
