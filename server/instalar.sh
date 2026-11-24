@@ -94,7 +94,28 @@ if ! command -v caddy >/dev/null; then
   dnf -y -q install caddy >/dev/null
 fi
 curl -fsSL "$RAW/Caddyfile.tmpl" | sed "s/{{HOST}}/$HOST/" > /etc/caddy/Caddyfile
-caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
+caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1
+# En contenedores (OpenVZ/LXC) systemd no puede aislar a Caddy como hace por defecto: se lo quitamos.
+if systemd-detect-virt -cq 2>/dev/null; then
+  mkdir -p /etc/systemd/system/caddy.service.d
+  cat > /etc/systemd/system/caddy.service.d/contenedor.conf <<'CONF'
+[Service]
+PrivateTmp=false
+PrivateDevices=false
+ProtectSystem=false
+ProtectHome=false
+ProtectKernelTunables=false
+ProtectKernelModules=false
+ProtectControlGroups=false
+CONF
+fi
+# ¿Hay otro servidor web ocupando los puertos 80/443?
+OCUPADOS="$(ss -ltnpH 2>/dev/null | awk '$4 ~ /:(80|443)$/' | grep -v caddy || true)"
+if [ -n "$OCUPADOS" ]; then
+  echo "Aviso: algo más está usando los puertos 80/443 y Caddy no podrá arrancar:"
+  echo "$OCUPADOS"
+  echo "Si es Apache o nginx y no lo usas: systemctl disable --now httpd nginx"
+fi
 
 paso "SELinux y cortafuegos"
 if command -v getenforce >/dev/null && [ "$(getenforce)" != "Disabled" ]; then
@@ -114,6 +135,10 @@ systemctl restart hangar.service caddy.service
 systemctl start --no-block hangar-logros.service
 
 sleep 3
+if ! systemctl is-active --quiet caddy.service; then
+  paso "Caddy no ha arrancado. Esto dice:"
+  journalctl -u caddy.service -n 25 --no-pager || true
+fi
 paso "Listo"
 echo "Servidor:          https://$HOST"
 echo "Panel de admin:    https://$HOST/_/"
