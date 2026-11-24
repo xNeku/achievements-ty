@@ -1,0 +1,16 @@
+[Unit]
+Description=Hangar (PocketBase): cuentas, amigos, partidas y logros
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=hangar
+Group=hangar
+ExecStart=/opt/hangar/pocketbase serve --http=127.0.0.1:8090 --dir=/opt/hangar/pb_data --migrationsDir=/opt/hangar/pb_migrations --publicDir=/opt/hangar/pb_public
+Restart=always
+RestartSec=3
+LimitNOFILE=4096
+MemoryMax=400M
+
+[Install]
+WantedBy=multi-user.target

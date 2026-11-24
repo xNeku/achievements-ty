@@ -1,0 +1,13 @@
+{{GLOBAL}}
+{{SITE}} {
+	encode zstd gzip
+
+	# Base de datos de logros y catálogos (los actualiza hangar-logros.timer)
+	handle_path /logros/* {
+		root * /opt/hangar/logros
+		file_server
+	}
+
+	# API de Hangar y panel de administración (/_/)
+	reverse_proxy 127.0.0.1:8090
+}

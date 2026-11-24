@@ -1,0 +1,205 @@
+name: Builds de Hangar
+
+on:
+  push:
+    paths:
+      - 'app/**'
+      - 'data/**'
+      - 'tools/**'
+      - '.github/workflows/builds.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: builds-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.50.1'
+
+jobs:
+  # Revisa en GitHub cada port: APK o descarga de Mac, última versión, si está archivado y qué pide.
+  catalogo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Comprobar la configuración
+        env:
+          RA_API_KEY: ${{ secrets.RA_API_KEY }}
+          SGDB_API_KEY: ${{ secrets.SGDB_API_KEY }}
+          HANGAR_SERVER: ${{ vars.HANGAR_SERVER }}
+        run: |
+          echo "Secreto RA_API_KEY: $([ -n "$RA_API_KEY" ] && echo "puesto (${#RA_API_KEY} caracteres)" || echo 'NO está')"
+          echo "Secreto SGDB_API_KEY: $([ -n "$SGDB_API_KEY" ] && echo "puesto (${#SGDB_API_KEY} caracteres)" || echo 'NO está')"
+          echo "Variable HANGAR_SERVER: ${HANGAR_SERVER:-NO está}"
+
+      - name: Revisar los ports en GitHub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/revisar_catalogo.py data/juegos.json data/juegos-mac.json
+
+      # Portadas, fondos y logos alternativos (los más votados de SteamGridDB) para elegir en la app.
+      - name: Imágenes de SteamGridDB
+        env:
+          SGDB_API_KEY: ${{ secrets.SGDB_API_KEY }}
+        run: python3 tools/arte/steamgriddb.py data/juegos.json data/juegos-mac.json --max 400
+
+      # Base de datos de logros: volcado de Xbox 360 / One y, si hay clave, RetroAchievements.
+      - name: Fuentes de logros
+        run: |
+          pip install --quiet pillow
+          git clone --quiet --depth 1 https://github.com/prashantkhandelwal/XBoxAchievements /tmp/xba
+
+      - name: Construir la base de datos de logros
+        env:
+          RA_API_KEY: ${{ secrets.RA_API_KEY }}
+        run: python3 tools/logros/construir.py --xbox /tmp/xba/Data --out build/logros
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: catalogo
+          path: |
+            data/*.json
+            data/logros/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: logros-db
+          path: build/logros/logros.db
+
+      - name: Guardar el catálogo revisado en la rama
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/*.json data/logros data/arte 2>/dev/null || git add data/*.json data/logros
+          git diff --cached --quiet && exit 0
+          git commit -m "Catálogo revisado en GitHub"
+          # Si mientras tanto alguien ha subido algo, nos ponemos al día y lo intentamos otra vez.
+          for intento in 1 2 3; do
+            git pull --rebase -q -X theirs origin ${{ github.ref_name }} && git push -q origin HEAD:${{ github.ref_name }} && echo "Guardado." && exit 0
+            sleep 5
+          done
+          echo "No se pudo guardar el catálogo revisado en la rama."
+
+  android:
+    needs: catalogo
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: catalogo
+          path: data
+
+      - name: Catálogo y logros dentro de la app
+        run: |
+          cp ../data/juegos.json ../data/juegos-mac.json assets/
+          rm -rf assets/logros && cp -r ../data/logros assets/logros
+
+      - name: Dependencias
+        run: flutter pub get
+
+      - name: Análisis y tests
+        run: |
+          flutter analyze
+          flutter test
+
+      # Misma clave de firma en todas las builds: así cada APK nuevo se instala encima del anterior.
+      - name: Clave de firma estable
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: hangar-debug-keystore-v1
+
+      - name: Compilar APK
+        run: |
+          flutter build apk --release --dart-define=HANGAR_SERVER=${{ vars.HANGAR_SERVER }}
+          cp build/app/outputs/flutter-apk/app-release.apk ../hangar.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hangar-android
+          path: hangar.apk
+
+  macos:
+    needs: catalogo
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: catalogo
+          path: data
+
+      - name: Catálogo y logros dentro de la app
+        run: |
+          cp ../data/juegos.json ../data/juegos-mac.json assets/
+          rm -rf assets/logros && cp -r ../data/logros assets/logros
+
+      - name: Compilar app de Mac
+        run: |
+          flutter pub get
+          flutter build macos --release --dart-define=HANGAR_SERVER=${{ vars.HANGAR_SERVER }}
+          ditto -c -k --sequesterRsrc --keepParent build/macos/Build/Products/Release/Hangar.app ../hangar-mac.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hangar-macos
+          path: hangar-mac.zip
+
+  release:
+    needs: [android, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Publicar en Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Hangar build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          files: |
+            hangar.apk
+            hangar-mac.zip
+            juegos.json
+            juegos-mac.json
+            logros.db
+          body: |
+            Compilado desde `${{ github.ref_name }}` (${{ github.sha }}).
+
+            **Android** (`hangar.apk`): descárgalo en el dispositivo e instálalo. Las builds nuevas se instalan encima de la anterior (si vienes de la build 3 o anterior, desinstálala una última vez).
+
+            **Mac** (`hangar-mac.zip`): descomprímelo y arrastra Hangar a Aplicaciones. La primera vez macOS lo bloquea porque no está firmado por Apple: abre Ajustes del Sistema → Privacidad y seguridad → «Abrir igualmente». O en Terminal: `xattr -dr com.apple.quarantine /Applications/Hangar.app`

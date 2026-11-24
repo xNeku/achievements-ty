@@ -1,0 +1,142 @@
+name: Publicar ports
+
+# Ports e imágenes que publican los desarrolladores (y la comunidad) con los formularios de issues.
+#  - Al abrir o editar la issue, un bot revisa el repositorio y su hangar.json y comenta lo que ve.
+#  - Cada día busca repos con el tema «hangar-port» y abre una issue ya revisada para cada uno nuevo.
+#  - Cuando alguien del equipo pone la etiqueta «aprobado», entra en el catálogo y se cierra la issue.
+# Solo quien tiene permiso en el repo puede poner etiquetas, así que nadie se cuela solo.
+# (Las issues solo disparan los workflows de la rama principal.)
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+  push:
+    paths:
+      - '.github/workflows/propuestas.yml'
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: propuestas-${{ github.event.issue.number || 'etiquetas' }}
+
+jobs:
+  # Crea las etiquetas que usan los formularios (si ya existen, no pasa nada).
+  etiquetas:
+    if: github.event_name != 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh label create publicar-port --color 2EA44F --description "Port para publicar en Hangar" --force
+          gh label create imagenes --color 1D76DB --description "Imágenes propuestas para un juego" --force
+          gh label create aprobado --color F2507F --description "Lo añade al catálogo de Hangar" --force
+
+  # Repos con el tema «hangar-port»: se abre una issue (ya revisada) para que el equipo la apruebe.
+  descubrir:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: etiquetas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Buscar ports nuevos
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/propuestas.py descubrir
+      - name: Abrir una issue por cada uno
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          shopt -s nullglob
+          for f in build/descubiertos/*.md; do
+            gh issue create --title "$(cat "${f%.md}.titulo")" --body-file "$f" --label publicar-port
+          done
+
+  revisar:
+    if: >-
+      github.event_name == 'issues' && github.event.action != 'labeled' && github.event.issue.state == 'open' &&
+      (contains(github.event.issue.labels.*.name, 'publicar-port') || contains(github.event.issue.labels.*.name, 'imagenes'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Revisar la propuesta
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/propuestas.py revisar
+      - name: Comentar
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          NUM: ${{ github.event.issue.number }}
+        run: gh issue comment "$NUM" --body-file build/propuesta-comentario.md
+
+  aplicar:
+    if: >-
+      github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'aprobado' &&
+      (contains(github.event.issue.labels.*.name, 'publicar-port') || contains(github.event.issue.labels.*.name, 'imagenes'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Añadir al catálogo
+        id: prop
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/propuestas.py aplicar
+
+      # Rellena la versión, el APK o la descarga de Mac del port recién añadido.
+      - name: Revisar los ports en GitHub
+        if: steps.prop.outputs.cambiado == 'si'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/revisar_catalogo.py data/juegos.json data/juegos-mac.json
+
+      - name: Guardar en el repositorio
+        if: steps.prop.outputs.cambiado == 'si'
+        env:
+          RESUMEN: ${{ steps.prop.outputs.resumen }}
+          RAMA: ${{ github.event.repository.default_branch }}
+        run: |
+          git config user.name "hangar-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/juegos.json data/juegos-mac.json
+          git commit -m "Comunidad · $RESUMEN"
+          for i in 1 2 3 4; do
+            git push origin "HEAD:$RAMA" && exit 0
+            sleep $((i * 5))
+            git pull --rebase -X theirs origin "$RAMA"
+          done
+          exit 1
+
+      - name: Comentar y cerrar
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          NUM: ${{ github.event.issue.number }}
+          CAMBIADO: ${{ steps.prop.outputs.cambiado }}
+        run: |
+          mkdir -p build; [ -f build/propuesta-comentario.md ] || echo "Algo ha fallado al añadirlo. Lo mira alguien del equipo." > build/propuesta-comentario.md
+          gh issue comment "$NUM" --body-file build/propuesta-comentario.md
+          if [ "$CAMBIADO" = si ]; then gh issue close "$NUM" --reason completed; fi
+
+      # Los commits del bot no lanzan otros workflows: se pide la build a mano para que salga en la release.
+      - name: Lanzar la build
+        if: steps.prop.outputs.cambiado == 'si'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RAMA: ${{ github.event.repository.default_branch }}
+        run: gh workflow run builds.yml --ref "$RAMA" || true

@@ -1,0 +1,33 @@
+name: Better images · Mejores imágenes
+description: Suggest a better cover, background or logo for a game in Hangar. · Propón mejores imágenes para un juego.
+title: "[Images] "
+labels: [imagenes]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Paste direct links to images (.png, .jpg, .webp). SteamGridDB is the best source: open the image, right click → «Copy image address».
+        Pega enlaces directos a las imágenes. En SteamGridDB: botón derecho → «Copiar dirección de la imagen».
+  - type: input
+    id: juego
+    attributes:
+      label: Game · Juego
+      description: As it shows in Hangar. · Tal como sale en Hangar.
+    validations:
+      required: true
+  - type: input
+    id: portada
+    attributes:
+      label: Cover · Portada
+  - type: input
+    id: hero
+    attributes:
+      label: Background · Fondo
+  - type: input
+    id: logo
+    attributes:
+      label: Logo
+  - type: textarea
+    id: motivo
+    attributes:
+      label: Why it's better · Por qué es mejor
