@@ -1,0 +1,8 @@
+[Unit]
+Description=Hangar: descarga la última base de datos de logros y los catálogos
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/hangar/actualizar-logros.sh

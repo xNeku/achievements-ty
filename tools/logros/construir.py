@@ -38,6 +38,7 @@ except ImportError:  # sin Pillow los logros de Xbox van sin icono
 RA = "https://retroachievements.org/API/"
 RA_KEY = os.environ.get("RA_API_KEY", "")
 RA_BADGE = "https://media.retroachievements.org/Badge/{}.png"
+CACHE_RA = Path("data/logros/cache-retroachievements.json")
 
 # Nuestro "origen" interno -> nombres de consola de RetroAchievements
 RA_CONSOLAS = {
@@ -174,7 +175,12 @@ def ra(endpoint, **params):
 
 def cargar_ra(db, catalogos, todo=False):
     consolas = ra("API_GetConsoleIDs.php") or []
-    por_nombre = {c["Name"].lower(): c["ID"] for c in consolas}
+    # "SNES/Super Famicom", "NES/Famicom", "Genesis/Mega Drive"… valen por cualquiera de sus nombres
+    por_nombre = {}
+    for c in consolas:
+        nombre = c["Name"].lower()
+        for alias in [nombre, *nombre.split("/")]:
+            por_nombre.setdefault(alias.strip(), c["ID"])
     orig_a_id = {o: next((por_nombre[n] for n in ns if n in por_nombre), None) for o, ns in RA_CONSOLAS.items()}
     # Juegos con logros de cada consola que nos interesa
     listas = {}
@@ -197,7 +203,8 @@ def cargar_ra(db, catalogos, todo=False):
         for o, lst in listas.items():
             for g in lst.values():
                 pedir.setdefault(g["ID"], (o, g))
-    print(f"RetroAchievements: {len(pedir)} juegos que bajar", file=sys.stderr)
+    print(f"RetroAchievements: {len(consolas)} consolas, {sum(len(v) for v in listas.values())} juegos con logros en las nuestras, {len(pedir)} que bajar", file=sys.stderr)
+    cache = {}
     for k, (gid, (o, g)) in enumerate(sorted(pedir.items())):
         ext = ra("API_GetGameExtended.php", i=gid)
         time.sleep(0.4)
@@ -209,11 +216,31 @@ def cargar_ra(db, catalogos, todo=False):
             for a in achs
         ]
         if logros:
-            guardar_juego(db, "retroachievements", gid, ext.get("Title") or g["Title"], o, logros)
+            titulo = ext.get("Title") or g["Title"]
+            guardar_juego(db, "retroachievements", gid, titulo, o, logros)
+            cache[str(gid)] = {"titulo": titulo, "origen": o, "logros": logros}
         if k % 50 == 0:
             db.commit()
             print(f"  RA {k}/{len(pedir)}", file=sys.stderr)
     db.commit()
+    # Guardamos lo bajado para los builds que no tengan la clave
+    if cache:
+        CACHE_RA.parent.mkdir(parents=True, exist_ok=True)
+        previo = json.load(open(CACHE_RA, encoding="utf-8")) if CACHE_RA.exists() else {}
+        previo.update(cache)
+        json.dump(previo, open(CACHE_RA, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+        print(f"RetroAchievements: {len(cache)} juegos guardados en {CACHE_RA}", file=sys.stderr)
+
+
+def cargar_cache_ra(db):
+    """Sin clave: usa las listas de RetroAchievements que ya se bajaron en otro build."""
+    if not CACHE_RA.exists():
+        return 0
+    cache = json.load(open(CACHE_RA, encoding="utf-8"))
+    for gid, g in cache.items():
+        guardar_juego(db, "retroachievements", gid, g["titulo"], g["origen"], g["logros"])
+    db.commit()
+    return len(cache)
 
 
 # ───────────────────────── enlazar con nuestros catálogos ─────────────────────────
@@ -290,7 +317,7 @@ def main():
     if RA_KEY:
         cargar_ra(db, catalogos, todo=a.ra_todo)
     else:
-        print("Sin RA_API_KEY: RetroAchievements se salta", file=sys.stderr)
+        print(f"Sin RA_API_KEY: uso la caché de RetroAchievements ({cargar_cache_ra(db)} juegos)", file=sys.stderr)
 
     resumen = enlazar(db, catalogos, "data/logros")
     for k, (p, data) in cats.items():

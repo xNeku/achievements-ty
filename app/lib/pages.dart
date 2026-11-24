@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'amigos.dart';
+import 'cuenta.dart';
 import 'data.dart';
 import 'installer.dart';
 import 'logros.dart';
@@ -185,59 +187,13 @@ class _Medalla extends StatelessWidget {
   }
 }
 
-class AmigosScreen extends StatelessWidget {
-  final Perfil perfil;
-  const AmigosScreen({super.key, required this.perfil});
-
-  @override
-  Widget build(BuildContext context) => _Page(
-    title: 'Amigos',
-    lead: 'Busca a tus amigos, mira a qué juegan y compara logros.',
-    children: [
-      Panel(
-        padding: const EdgeInsets.all(22),
-        child: Row(
-          children: [
-            Avatar(letter: perfil.inicial, size: 56),
-            const SizedBox(width: 18),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(perfil.nombre.isEmpty ? 'Tu perfil' : perfil.nombre, style: T.sans(size: 17, w: FontWeight.w600)),
-                  Text('${perfil.ganados.length} logros de Hangar', style: T.sans(size: 13, color: C.ink2)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 18),
-      Panel(
-        padding: const EdgeInsets.all(28),
-        child: Row(
-          children: [
-            const Icon(Icons.group_outlined, color: C.pink, size: 34),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Text(
-                'Los amigos necesitan cuentas en la nube, y eso todavía no está. Cuando lo esté, podrás añadir gente con su nombre y ver a qué juega.',
-                style: T.sans(size: 15, color: C.ink2, height: 1.5),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ],
-  );
-}
-
 class AjustesScreen extends StatefulWidget {
   final CatalogStore store;
   final Ajustes ajustes;
   final Perfil perfil;
   final Installer installer;
-  const AjustesScreen({super.key, required this.store, required this.ajustes, required this.perfil, required this.installer});
+  final Cuenta cuenta;
+  const AjustesScreen({super.key, required this.store, required this.ajustes, required this.perfil, required this.installer, required this.cuenta});
   @override
   State<AjustesScreen> createState() => _AjustesScreenState();
 }
@@ -253,7 +209,7 @@ class _AjustesScreenState extends State<AjustesScreen> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([widget.store, widget.ajustes, widget.installer]),
+    listenable: Listenable.merge([widget.store, widget.ajustes, widget.installer, widget.cuenta]),
     builder: (context, _) {
       final store = widget.store, ajustes = widget.ajustes, ins = widget.installer;
       final c = store.catalogo;
@@ -307,6 +263,27 @@ class _AjustesScreenState extends State<AjustesScreen> {
         lead: 'Lo justo para jugar a gusto.',
         children: [
           row(
+            'Cuenta de Hangar',
+            widget.cuenta.dentro
+                ? 'Conectado como ${widget.cuenta.email}. Tus horas y logros se guardan en el servidor.'
+                : 'Sin cuenta: tus horas y logros solo están en este dispositivo.',
+            widget.cuenta.dentro
+                ? TextButton(
+                    onPressed: widget.cuenta.salir,
+                    child: Text(
+                      'SALIR',
+                      style: T.label(size: 12, color: C.ink, w: FontWeight.w600),
+                    ),
+                  )
+                : TextButton(
+                    onPressed: () => abrirCuenta(context, widget.cuenta, widget.perfil),
+                    child: Text(
+                      'ENTRAR',
+                      style: T.label(size: 12, color: C.ink, w: FontWeight.w600),
+                    ),
+                  ),
+          ),
+          row(
             'Tu nombre',
             'Sale en tu perfil y en la barra lateral.',
             SizedBox(
@@ -315,8 +292,15 @@ class _AjustesScreenState extends State<AjustesScreen> {
                 controller: _nombre,
                 style: T.sans(size: 14),
                 textInputAction: TextInputAction.done,
-                onSubmitted: widget.perfil.setNombre,
-                onTapOutside: (_) => widget.perfil.setNombre(_nombre.text),
+                onSubmitted: (v) {
+                  widget.perfil.setNombre(v);
+                  widget.cuenta.cambiarNombre(v.trim());
+                },
+                onTapOutside: (_) {
+                  if (_nombre.text.trim() == widget.perfil.nombre) return;
+                  widget.perfil.setNombre(_nombre.text);
+                  widget.cuenta.cambiarNombre(_nombre.text.trim());
+                },
                 decoration: InputDecoration(
                   isDense: true,
                   hintText: 'Escribe tu nombre',

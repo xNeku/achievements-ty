@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'amigos.dart';
+import 'cuenta.dart';
 import 'data.dart';
 import 'home.dart';
 import 'installer.dart';
@@ -22,9 +24,9 @@ Future<void> main() async {
   // Cada sistema tiene su catálogo: los ports de Android no sirven en el Mac y al revés.
   final mac = kIsWeb ? Uri.base.queryParameters.containsKey('mac') : Platform.isMacOS;
   catalogoMac = mac;
-  final store = CatalogStore(mac ? 'juegos-mac.json' : 'juegos.json'), ajustes = Ajustes(), installer = Installer(), perfil = Perfil();
-  await Future.wait([store.init(), ajustes.init(), installer.init(), perfil.init()]);
-  runApp(HangarApp(store: store, ajustes: ajustes, installer: installer, perfil: perfil));
+  final store = CatalogStore(mac ? 'juegos-mac.json' : 'juegos.json'), ajustes = Ajustes(), installer = Installer(), perfil = Perfil(), cuenta = Cuenta();
+  await Future.wait([store.init(), ajustes.init(), installer.init(), perfil.init(), cuenta.init()]);
+  runApp(HangarApp(store: store, ajustes: ajustes, installer: installer, perfil: perfil, cuenta: cuenta));
 }
 
 class HangarApp extends StatelessWidget {
@@ -32,14 +34,15 @@ class HangarApp extends StatelessWidget {
   final Ajustes ajustes;
   final Installer installer;
   final Perfil perfil;
-  const HangarApp({super.key, required this.store, required this.ajustes, required this.installer, required this.perfil});
+  final Cuenta cuenta;
+  const HangarApp({super.key, required this.store, required this.ajustes, required this.installer, required this.perfil, required this.cuenta});
 
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'Hangar',
     debugShowCheckedModeBanner: false,
     theme: buildTheme(),
-    home: Shell(store: store, ajustes: ajustes, installer: installer, perfil: perfil),
+    home: Shell(store: store, ajustes: ajustes, installer: installer, perfil: perfil, cuenta: cuenta),
   );
 }
 
@@ -53,7 +56,8 @@ class Shell extends StatefulWidget {
   final Ajustes ajustes;
   final Installer installer;
   final Perfil perfil;
-  const Shell({super.key, required this.store, required this.ajustes, required this.installer, required this.perfil});
+  final Cuenta cuenta;
+  const Shell({super.key, required this.store, required this.ajustes, required this.installer, required this.perfil, required this.cuenta});
   @override
   State<Shell> createState() => _ShellState();
 }
@@ -78,6 +82,8 @@ class _ShellState extends State<Shell> {
 
   /// Avisa cuando se gana un logro de Hangar.
   void _revisarLogros() {
+    // Con cuenta, las horas y los logros se suben solos unos segundos después.
+    widget.cuenta.sincronizarPronto(widget.installer, widget.perfil, widget.store.catalogo.juegos);
     final nuevos = widget.perfil.revisar(widget.installer);
     if (nuevos.isEmpty || !mounted) return;
     for (final h in nuevos) {
@@ -260,8 +266,14 @@ class _ShellState extends State<Shell> {
                                 recientes: _recientes.map((id) => byId[id]).whereType<Juego>().toList(),
                                 onPick: _pick,
                               ),
-                              AmigosScreen(perfil: widget.perfil),
-                              AjustesScreen(store: widget.store, ajustes: widget.ajustes, perfil: widget.perfil, installer: widget.installer),
+                              AmigosScreen(cuenta: widget.cuenta, perfil: widget.perfil),
+                              AjustesScreen(
+                                store: widget.store,
+                                ajustes: widget.ajustes,
+                                perfil: widget.perfil,
+                                installer: widget.installer,
+                                cuenta: widget.cuenta,
+                              ),
                             ])
                               Padding(
                                 padding: EdgeInsets.only(left: railW),
@@ -275,7 +287,15 @@ class _ShellState extends State<Shell> {
                         top: 0,
                         bottom: 0,
                         width: railW,
-                        child: _Rail(tab: _tab, compact: compact, letra: widget.perfil.inicial, onTab: (t) => setState(() => _tab = t)),
+                        child: _Rail(
+                          tab: _tab,
+                          compact: compact,
+                          letra: widget.perfil.inicial,
+                          onTab: (t) {
+                            if (t == Tab.amigos) widget.cuenta.cargarAmigos();
+                            setState(() => _tab = t);
+                          },
+                        ),
                       ),
                     ],
                   ),

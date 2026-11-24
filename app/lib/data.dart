@@ -9,14 +9,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// si no hay, la que viene dentro de la app.
 /// Primero el de `main`; si aún no está, el de la última build publicada.
 List<String> catalogUrls(String file) => [
-      'https://raw.githubusercontent.com/xNeku/achievements-ty/main/data/$file',
-      'https://github.com/xNeku/achievements-ty/releases/latest/download/$file',
-    ];
+  'https://raw.githubusercontent.com/xNeku/achievements-ty/main/data/$file',
+  'https://github.com/xNeku/achievements-ty/releases/latest/download/$file',
+];
 
 /// Este dispositivo usa el catálogo de Mac (si no, el de Android).
 bool catalogoMac = false;
 
-const fuenteLabel = {'xbox360': 'Xbox 360', 'xboxone': 'Xbox One', 'retroachievements': 'RetroAchievements', 'steam': 'Steam', 'psn': 'PlayStation', 'hangar': 'Hangar'};
+const fuenteLabel = {
+  'xbox360': 'Xbox 360',
+  'xboxone': 'Xbox One',
+  'retroachievements': 'RetroAchievements',
+  'steam': 'Steam',
+  'psn': 'PlayStation',
+  'hangar': 'Hangar',
+};
 
 const tipoLabel = {'recomp': 'Recomp', 'decomp': 'Decomp', 'source-port': 'Source port', 'emulator': 'Emulador'};
 
@@ -24,6 +31,7 @@ const tipoLabel = {'recomp': 'Recomp', 'decomp': 'Decomp', 'source-port': 'Sourc
 class MacInfo {
   final String? tag, asset, file, sha256, version, size, necesita, aviso, juegoTipo, juegoTexto, url;
   final List<String> pasos, programa, args, ids;
+
   /// Volcados válidos de la ROM: tamaño en bytes y CRC32 en hexadecimal.
   final List<({String name, int size, String crc32})> dumps;
   const MacInfo({
@@ -83,7 +91,11 @@ class AndroidInfo {
   const AndroidInfo({required this.tag, required this.apk, required this.url, this.size = 0, this.pre = false});
   factory AndroidInfo.fromJson(Map<String, dynamic> j) =>
       AndroidInfo(tag: '${j['tag']}', apk: '${j['apk']}', url: '${j['url']}', size: (j['size'] as num?)?.toInt() ?? 0, pre: j['pre'] == true);
-  String get tamano => size <= 0 ? '' : size > 1e9 ? '${(size / 1e9).toStringAsFixed(1)} GB' : '${(size / 1e6).round()} MB';
+  String get tamano => size <= 0
+      ? ''
+      : size > 1e9
+      ? '${(size / 1e9).toStringAsFixed(1)} GB'
+      : '${(size / 1e6).round()} MB';
 }
 
 class Repo {
@@ -110,19 +122,14 @@ class Repo {
 class Arte {
   final String? portada, portadaThumb, hero, heroThumb, logo, logoThumb;
   const Arte({this.portada, this.portadaThumb, this.hero, this.heroThumb, this.logo, this.logoThumb});
-  factory Arte.fromJson(Map<String, dynamic> j) => Arte(
-        portada: j['portada'],
-        portadaThumb: j['portada_thumb'],
-        hero: j['hero'],
-        heroThumb: j['hero_thumb'],
-        logo: j['logo'],
-        logoThumb: j['logo_thumb'],
-      );
+  factory Arte.fromJson(Map<String, dynamic> j) =>
+      Arte(portada: j['portada'], portadaThumb: j['portada_thumb'], hero: j['hero'], heroThumb: j['hero_thumb'], logo: j['logo'], logoThumb: j['logo_thumb']);
 }
 
 class Juego {
   final String id, nombre, confianza, descripcion;
   final int orden;
+
   /// Listas de logros que tiene en la base de datos de Hangar (Xbox 360, RetroAchievements…).
   final List<({String fuente, int total, int puntos})> logros;
   final List<String> proyectos, tipos, notas;
@@ -158,12 +165,18 @@ class Juego {
       tipos: strs(j['tipos']),
       notas: strs(j['notas']),
       repos: (j['repos'] as List? ?? const [])
-          .map((r) => Repo('${r['repo']}', '${r['url'] ?? 'https://github.com/${r['repo']}'}', '${r['tipo'] ?? ''}',
+          .map(
+            (r) => Repo(
+              '${r['repo']}',
+              '${r['url'] ?? 'https://github.com/${r['repo']}'}',
+              '${r['tipo'] ?? ''}',
               mac: r['mac'] is Map<String, dynamic> ? MacInfo.fromJson(r['mac']) : null,
               android: r['android'] is Map<String, dynamic> ? AndroidInfo.fromJson(r['android']) : null,
               requisitos: strs(r['requisitos']),
               archivado: r['archivado'] == true,
-              estado: r['estado']))
+              estado: r['estado'],
+            ),
+          )
           .toList(),
       arte: j['arte'] is Map<String, dynamic> ? Arte.fromJson(j['arte']) : null,
     );
@@ -175,6 +188,7 @@ class Juego {
   String? get heroSmall => arte?.heroThumb ?? arte?.hero;
   String? get logo => arte?.logo ?? arte?.logoThumb;
   bool get hasHero => hero != null;
+
   /// Algún port se puede instalar en este dispositivo.
   bool get listo => repos.any((r) => r.listo);
   bool get dudoso => confianza == 'baja';

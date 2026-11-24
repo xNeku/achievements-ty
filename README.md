@@ -42,11 +42,24 @@ Hace falta tu propia copia de cada juego (la ROM o el disco).
 
 Solo se guardan los datos de los logros (nombre, descripción, puntos e icono); Hangar no vincula ninguna cuenta. Cada juego enlazado lleva su lista en `data/logros/<android|mac>/<id>.json`, que la app muestra en la pantalla del juego. Desbloquearlos necesita que el port avise a Hangar.
 
+## Servidor (cuentas, amigos y logros)
+
+`server/` monta en un VPS pequeño (2 GB de RAM basta) [PocketBase](https://pocketbase.io) con las cuentas, amistades, partidas y logros desbloqueados, y Caddy con HTTPS automático. Sin dominio usa `<ip-con-guiones>.sslip.io`.
+
+```bash
+# En el VPS (AlmaLinux/Rocky/RHEL 8 o 9), como root:
+curl -fsSL https://raw.githubusercontent.com/xNeku/achievements-ty/main/server/instalar.sh | RAMA=main bash
+```
+
+El script instala todo, crea la cuenta del panel (te enseña la contraseña una vez), activa 1 GB de swap y deja un temporizador que cada noche baja la última `logros.db` y los catálogos a `https://<servidor>/logros/`.
+
+Para que las apps lo usen sin escribirlo a mano, guarda la dirección en GitHub como variable del repo `HANGAR_SERVER` (Settings → Secrets and variables → Actions → Variables). También se puede escribir en Ajustes → Cuenta de Hangar.
+
 ## Lo que hace distinto a Hangar
 
 - Android y Mac, en horizontal y con mando (cruceta, A, B, L1 y R1).
 - Logros de Hangar: doce logros que se ganan usando la app (instalar, jugar horas, explorar el catálogo…), con aviso al desbloquearlos.
-- Perfil con tu nombre. Los amigos llegarán con las cuentas en la nube.
+- Cuenta de Hangar en tu propio servidor: tus horas y logros se guardan en ella y puedes añadir amigos y ver a qué juegan.
 
 ## Estructura
 
@@ -59,6 +72,9 @@ app/                 proyecto Flutter
   lib/play.dart      botón Jugar y panel de versiones
   lib/pages.dart     logros, amigos y ajustes
   lib/logros.dart    logros de Hangar y perfil
+  lib/cuenta.dart    cuenta, sincronización y amigos (servidor)
+  lib/amigos.dart    pantalla de amigos y ventana de cuenta
+server/              instalación del servidor (PocketBase + Caddy)
 tools/revisar_catalogo.py  revisa en GitHub los ports de los catálogos
 tools/logros/construir.py  base de datos de logros
 data/logros/         listas de logros de cada juego del catálogo
@@ -77,4 +93,4 @@ flutter build apk
 flutter build macos    # solo desde un Mac
 ```
 
-Lo que todavía no hace: cuentas y amigos en la nube, desbloquear los logros de cada juego, ajustes por juego y preparar los ports que se montan a mano (se muestran sus pasos).
+Lo que todavía no hace: desbloquear los logros de cada juego, ajustes por juego y preparar los ports que se montan a mano (se muestran sus pasos).

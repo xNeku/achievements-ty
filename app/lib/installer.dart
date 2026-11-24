@@ -23,32 +23,32 @@ class Instalado {
   const Instalado({required this.dir, required this.target, required this.version, this.copia, this.paquete, this.segundos = 0, this.ultima});
 
   Map<String, dynamic> toJson() => {
-        'dir': dir,
-        'target': target,
-        'version': version,
-        'copia': copia,
-        'paquete': paquete,
-        'segundos': segundos,
-        'ultima': ultima?.toIso8601String(),
-      };
+    'dir': dir,
+    'target': target,
+    'version': version,
+    'copia': copia,
+    'paquete': paquete,
+    'segundos': segundos,
+    'ultima': ultima?.toIso8601String(),
+  };
   factory Instalado.fromJson(Map<String, dynamic> j) => Instalado(
-        dir: j['dir'] ?? '',
-        target: j['target'] ?? '',
-        version: j['version'] ?? '',
-        copia: j['copia'],
-        paquete: j['paquete'],
-        segundos: j['segundos'] ?? 0,
-        ultima: DateTime.tryParse(j['ultima'] ?? ''),
-      );
+    dir: j['dir'] ?? '',
+    target: j['target'] ?? '',
+    version: j['version'] ?? '',
+    copia: j['copia'],
+    paquete: j['paquete'],
+    segundos: j['segundos'] ?? 0,
+    ultima: DateTime.tryParse(j['ultima'] ?? ''),
+  );
   Instalado copyWith({String? copia, int? segundos, DateTime? ultima}) => Instalado(
-        dir: dir,
-        target: target,
-        version: version,
-        copia: copia ?? this.copia,
-        paquete: paquete,
-        segundos: segundos ?? this.segundos,
-        ultima: ultima ?? this.ultima,
-      );
+    dir: dir,
+    target: target,
+    version: version,
+    copia: copia ?? this.copia,
+    paquete: paquete,
+    segundos: segundos ?? this.segundos,
+    ultima: ultima ?? this.ultima,
+  );
 }
 
 class InstallError implements Exception {
@@ -86,7 +86,9 @@ class Installer extends ChangeNotifier {
   /// Revisa qué sigue instalado (en Android el usuario puede desinstalar desde el sistema).
   Future<void> comprobar() async {
     for (final e in _hechos.entries.toList()) {
-      final ok = esAndroid ? await _android.invokeMethod<bool>('isInstalled', e.value.paquete) == true : await FileSystemEntity.type(e.value.target) != FileSystemEntityType.notFound;
+      final ok = esAndroid
+          ? await _android.invokeMethod<bool>('isInstalled', e.value.paquete) == true
+          : await FileSystemEntity.type(e.value.target) != FileSystemEntityType.notFound;
       if (!ok && _fase[e.key] != Fase.descargando) _hechos.remove(e.key);
     }
     _save();
@@ -224,19 +226,26 @@ class Installer extends ChangeNotifier {
     final releases = (body is List ? body : [body]).cast<Map<String, dynamic>>().where((x) => x['draft'] != true).toList();
     if (releases.isEmpty) throw InstallError('Este proyecto no tiene ninguna versión publicada en GitHub.');
     // La primera release que traiga lo que buscamos.
-    final assets = (releases.firstWhere(
-      (rel) => ((rel['assets'] as List?) ?? const []).any((a) => apk
-          ? '${a['name']}'.toLowerCase().endsWith('.apk')
-          : RegExp('^${m!.asset!.split('*').map(RegExp.escape).join('.*')}\$', caseSensitive: false).hasMatch('${a['name']}')),
-      orElse: () => releases.first,
-    )['assets'] as List)
-        .cast<Map<String, dynamic>>();
+    final assets =
+        (releases.firstWhere(
+                  (rel) => ((rel['assets'] as List?) ?? const []).any(
+                    (a) => apk
+                        ? '${a['name']}'.toLowerCase().endsWith('.apk')
+                        : RegExp('^${m!.asset!.split('*').map(RegExp.escape).join('.*')}\$', caseSensitive: false).hasMatch('${a['name']}'),
+                  ),
+                  orElse: () => releases.first,
+                )['assets']
+                as List)
+            .cast<Map<String, dynamic>>();
     Map<String, dynamic>? pick;
     if (apk) {
       final apks = assets.where((a) => '${a['name']}'.toLowerCase().endsWith('.apk')).toList();
       int score(Map a) {
         final n = '${a['name']}'.toLowerCase();
-        return (n.contains('arm64') || n.contains('v8a') ? 3 : 0) + (n.contains('universal') ? 2 : 0) - (n.contains('x86') ? 5 : 0) - (n.contains('debug') ? 1 : 0);
+        return (n.contains('arm64') || n.contains('v8a') ? 3 : 0) +
+            (n.contains('universal') ? 2 : 0) -
+            (n.contains('x86') ? 5 : 0) -
+            (n.contains('debug') ? 1 : 0);
       }
 
       apks.sort((a, b) => score(b) - score(a));
@@ -530,7 +539,10 @@ class Installer extends ChangeNotifier {
     if (!esAndroid) return;
     permisoUso = await _android.invokeMethod<bool>('hasUsage') == true;
     if (!permisoUso) return notifyListeners();
-    final pkgs = [for (final r in _hechos.values) if (r.paquete != null) r.paquete!];
+    final pkgs = [
+      for (final r in _hechos.values)
+        if (r.paquete != null) r.paquete!,
+    ];
     if (pkgs.isEmpty) return notifyListeners();
     final res = await _android.invokeMapMethod<String, dynamic>('usage', pkgs) ?? const {};
     for (final e in _hechos.entries.toList()) {

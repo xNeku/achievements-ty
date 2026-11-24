@@ -133,7 +133,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       if (k == LogicalKeyboardKey.enter || k == LogicalKeyboardKey.gameButtonA) return _handled(() => _play(context));
     } else {
       final top = !_scroll.hasClients || _scroll.offset <= 0;
-      if (k == LogicalKeyboardKey.escape || k == LogicalKeyboardKey.gameButtonB || ((k == LogicalKeyboardKey.arrowUp || k == LogicalKeyboardKey.pageUp) && top)) {
+      if (k == LogicalKeyboardKey.escape ||
+          k == LogicalKeyboardKey.gameButtonB ||
+          ((k == LogicalKeyboardKey.arrowUp || k == LogicalKeyboardKey.pageUp) && top)) {
         return _handled(() => _setOpen(false));
       }
     }
@@ -150,84 +152,95 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     if (widget.juegos.isEmpty) return const Center(child: CircularProgressIndicator(color: C.acc));
-    return LayoutBuilder(builder: (context, box) {
-      final compact = box.maxHeight < 560;
-      return Focus(
-        focusNode: _focus,
-        autofocus: true,
-        onKeyEvent: _onKey,
-        child: Listener(
-          onPointerSignal: _onWheel,
-          onPointerPanZoomStart: _onPanStart,
-          onPointerPanZoomUpdate: _onPanUpdate,
-          child: AnimatedBuilder(
-            animation: _t,
-            builder: (context, _) {
-              final t = _t.value, h = box.maxHeight;
-              return Stack(children: [
-                // Pantalla 1: el juego
-                IgnorePointer(
-                  ignoring: t > .5,
-                  child: Opacity(
-                    opacity: (1 - t * 1.4).clamp(0, 1),
-                    child: Transform(
-                      alignment: Alignment.topCenter,
-                      transform: Matrix4.identity()
-                        ..translateByDouble(0, -h * .07 * t, 0, 1)
-                        ..scaleByDouble(1 - .07 * t, 1 - .07 * t, 1, 1),
-                      child: _GameScreen(
-                        inset: widget.inset,
-                        g: _g,
-                        juegos: widget.juegos,
-                        index: widget.index,
-                        compact: compact,
-                        chispas: widget.chispas,
-                        onPrev: () => _go(-1),
-                        onNext: () => _go(1),
-                        onPick: widget.onIndex,
-                        onDown: () => _setOpen(true),
-                        onPlay: () => _play(context),
-                        installer: widget.installer,
-                      ),
-                    ),
-                  ),
-                ),
-                // Pantalla 2: tu partida
-                if (t > 0)
-                  IgnorePointer(
-                    ignoring: t < .5,
-                    child: Opacity(
-                      opacity: ((t - .1) / .9).clamp(0, 1),
-                      child: Transform.translate(
-                        offset: Offset(0, h * .12 * (1 - t)),
-                        child: NotificationListener<ScrollNotification>(
-                          onNotification: (n) {
-                            if (n is ScrollStartNotification) _pull = 0;
-                            if (n is OverscrollNotification && n.overscroll < 0 && n.metrics.pixels <= n.metrics.minScrollExtent) {
-                              _pull += -n.overscroll;
-                              if (_pull > 80 && !_locked) _setOpen(false);
-                            }
-                            return false;
-                          },
-                          child: _RecordScreen(inset: widget.inset, g: _g, installer: widget.installer, controller: _scroll, compact: compact, onUp: () => _setOpen(false)),
+    return LayoutBuilder(
+      builder: (context, box) {
+        final compact = box.maxHeight < 560;
+        return Focus(
+          focusNode: _focus,
+          autofocus: true,
+          onKeyEvent: _onKey,
+          child: Listener(
+            onPointerSignal: _onWheel,
+            onPointerPanZoomStart: _onPanStart,
+            onPointerPanZoomUpdate: _onPanUpdate,
+            child: AnimatedBuilder(
+              animation: _t,
+              builder: (context, _) {
+                final t = _t.value, h = box.maxHeight;
+                return Stack(
+                  children: [
+                    // Pantalla 1: el juego
+                    IgnorePointer(
+                      ignoring: t > .5,
+                      child: Opacity(
+                        opacity: (1 - t * 1.4).clamp(0, 1),
+                        child: Transform(
+                          alignment: Alignment.topCenter,
+                          transform: Matrix4.identity()
+                            ..translateByDouble(0, -h * .07 * t, 0, 1)
+                            ..scaleByDouble(1 - .07 * t, 1 - .07 * t, 1, 1),
+                          child: _GameScreen(
+                            inset: widget.inset,
+                            g: _g,
+                            juegos: widget.juegos,
+                            index: widget.index,
+                            compact: compact,
+                            chispas: widget.chispas,
+                            onPrev: () => _go(-1),
+                            onNext: () => _go(1),
+                            onPick: widget.onIndex,
+                            onDown: () => _setOpen(true),
+                            onPlay: () => _play(context),
+                            installer: widget.installer,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                Positioned(
-                  top: compact ? 14 : 30,
-                  right: compact ? 22 : 40,
-                  child: Opacity(
-                    opacity: compact ? (1 - t).clamp(0, 1) : 1,
-                    child: _TopNav(onLibrary: widget.onLibrary, onSearch: widget.onSearch),
-                  ),
-                ),
-              ]);
-            },
+                    // Pantalla 2: tu partida
+                    if (t > 0)
+                      IgnorePointer(
+                        ignoring: t < .5,
+                        child: Opacity(
+                          opacity: ((t - .1) / .9).clamp(0, 1),
+                          child: Transform.translate(
+                            offset: Offset(0, h * .12 * (1 - t)),
+                            child: NotificationListener<ScrollNotification>(
+                              onNotification: (n) {
+                                if (n is ScrollStartNotification) _pull = 0;
+                                if (n is OverscrollNotification && n.overscroll < 0 && n.metrics.pixels <= n.metrics.minScrollExtent) {
+                                  _pull += -n.overscroll;
+                                  if (_pull > 80 && !_locked) _setOpen(false);
+                                }
+                                return false;
+                              },
+                              child: _RecordScreen(
+                                inset: widget.inset,
+                                g: _g,
+                                installer: widget.installer,
+                                controller: _scroll,
+                                compact: compact,
+                                onUp: () => _setOpen(false),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    Positioned(
+                      top: compact ? 14 : 30,
+                      right: compact ? 22 : 40,
+                      child: Opacity(
+                        opacity: compact ? (1 - t).clamp(0, 1) : 1,
+                        child: _TopNav(onLibrary: widget.onLibrary, onSearch: widget.onSearch),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }
 
@@ -256,16 +269,18 @@ class _TopNavState extends State<_TopNav> {
   Widget build(BuildContext context) {
     final now = TimeOfDay.now();
     Widget link(String s, VoidCallback f) => TextButton(
-          onPressed: f,
-          style: TextButton.styleFrom(foregroundColor: C.ink2, padding: const EdgeInsets.symmetric(horizontal: 12)),
-          child: Text(s.toUpperCase(), style: T.label(size: 12, color: C.ink2)),
-        );
-    return Row(children: [
-      link('Biblioteca', widget.onLibrary),
-      link('Buscar', widget.onSearch),
-      const SizedBox(width: 12),
-      Text('${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}', style: T.label(size: 12, color: C.ink2)),
-    ]);
+      onPressed: f,
+      style: TextButton.styleFrom(foregroundColor: C.ink2, padding: const EdgeInsets.symmetric(horizontal: 12)),
+      child: Text(s.toUpperCase(), style: T.label(size: 12, color: C.ink2)),
+    );
+    return Row(
+      children: [
+        link('Biblioteca', widget.onLibrary),
+        link('Buscar', widget.onSearch),
+        const SizedBox(width: 12),
+        Text('${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}', style: T.label(size: 12, color: C.ink2)),
+      ],
+    );
   }
 }
 
@@ -275,14 +290,17 @@ class _HeroArt extends StatelessWidget {
   const _HeroArt(this.g, {super.key});
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
-        final c = hueOf(g.nombre, s1: .5, l: .28);
-        final bgFallback = DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: RadialGradient(center: const Alignment(.4, -.6), radius: 1.2, colors: [c, Color.lerp(c, C.card, .85)!]),
-          ),
-        );
-        return Stack(fit: StackFit.expand, children: [
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final c = hueOf(g.nombre, s1: .5, l: .28);
+      final bgFallback = DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(center: const Alignment(.4, -.6), radius: 1.2, colors: [c, Color.lerp(c, C.card, .85)!]),
+        ),
+      );
+      return Stack(
+        fit: StackFit.expand,
+        children: [
           ColoredBox(color: C.card, child: bgFallback),
           // Fondo: el arte difuminado y oscurecido
           if (g.heroSmall != null || g.cover != null)
@@ -305,7 +323,11 @@ class _HeroArt extends StatelessWidget {
                   stops: [0, .55, 1],
                 ).createShader(r),
                 blendMode: BlendMode.dstIn,
-                child: NetImg(g.hero, alignment: Alignment.topCenter, fallback: NetImg(g.heroSmall, alignment: Alignment.topCenter)),
+                child: NetImg(
+                  g.hero,
+                  alignment: Alignment.topCenter,
+                  fallback: NetImg(g.heroSmall, alignment: Alignment.topCenter),
+                ),
               ),
             )
           else if (g.cover != null)
@@ -323,11 +345,16 @@ class _HeroArt extends StatelessWidget {
                   stops: [0, .6, 1],
                 ).createShader(r),
                 blendMode: BlendMode.dstIn,
-                child: Padding(padding: EdgeInsets.only(top: box.maxHeight * .08), child: NetImg(g.coverFull, fit: BoxFit.contain, alignment: Alignment.topCenter)),
+                child: Padding(
+                  padding: EdgeInsets.only(top: box.maxHeight * .08),
+                  child: NetImg(g.coverFull, fit: BoxFit.contain, alignment: Alignment.topCenter),
+                ),
               ),
             ),
-        ]);
-      });
+        ],
+      );
+    },
+  );
 }
 
 class _GameScreen extends StatelessWidget {
@@ -367,103 +394,113 @@ class _GameScreen extends StatelessWidget {
       onVerticalDragEnd: (d) {
         if ((d.primaryVelocity ?? 0) < -250) onDown();
       },
-      child: Stack(fit: StackFit.expand, children: [
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 800),
-          switchInCurve: Curves.easeOutCubic,
-          transitionBuilder: (child, a) => FadeTransition(
-            opacity: a,
-            child: ScaleTransition(scale: Tween(begin: 1.05, end: 1.0).animate(a), child: child),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 800),
+            switchInCurve: Curves.easeOutCubic,
+            transitionBuilder: (child, a) => FadeTransition(
+              opacity: a,
+              child: ScaleTransition(scale: Tween(begin: 1.05, end: 1.0).animate(a), child: child),
+            ),
+            layoutBuilder: (cur, prev) => Stack(fit: StackFit.expand, children: [...prev, ?cur]),
+            child: _HeroArt(g, key: ValueKey(g.id)),
           ),
-          layoutBuilder: (cur, prev) => Stack(fit: StackFit.expand, children: [...prev, ?cur]),
-          child: _HeroArt(g, key: ValueKey(g.id)),
-        ),
-        // Sombras para que el texto se lea
-        const IgnorePointer(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerRight,
-                end: Alignment.centerLeft,
-                colors: [Color(0xDB0E090C), Color(0x8C0E090C), Color(0x000E090C)],
-                stops: [0, .32, .64],
+          // Sombras para que el texto se lea
+          const IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerRight,
+                  end: Alignment.centerLeft,
+                  colors: [Color(0xDB0E090C), Color(0x8C0E090C), Color(0x000E090C)],
+                  stops: [0, .32, .64],
+                ),
               ),
             ),
           ),
-        ),
-        const IgnorePointer(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [Color(0xEB0E090C), Color(0x400E090C), Color(0x000E090C)],
-                stops: [0, .34, .58],
+          const IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Color(0xEB0E090C), Color(0x400E090C), Color(0x000E090C)],
+                  stops: [0, .34, .58],
+                ),
               ),
             ),
           ),
-        ),
-        Embers(enabled: chispas),
-        // Logo y datos
-        Positioned(
-          right: pad,
-          top: 0,
-          bottom: compact ? 60 : 80,
-          width: MediaQuery.sizeOf(context).width * (compact ? .44 : .42),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 600),
-              switchInCurve: Curves.easeOutCubic,
-              transitionBuilder: (child, a) => FadeTransition(
-                opacity: a,
-                child: SlideTransition(position: Tween(begin: const Offset(0, .06), end: Offset.zero).animate(a), child: child),
-              ),
-              child: _Info(g, compact: compact, key: ValueKey(g.id)),
-            ),
-          ),
-        ),
-        // Flechas y miniaturas
-        Positioned(
-          left: inset + (compact ? 18 : 44),
-          bottom: compact ? 18 : 52,
-          child: Row(children: [
-            GlassButton(icon: Icons.chevron_left_rounded, onTap: onPrev, tooltip: 'Anterior', size: compact ? 42 : 52),
-            SizedBox(width: compact ? 10 : 14),
-            GlassButton(icon: Icons.chevron_right_rounded, onTap: onNext, tooltip: 'Siguiente', size: compact ? 42 : 52),
-            if (MediaQuery.sizeOf(context).width > 980) ...[const SizedBox(width: 18), _Strip(juegos: juegos, index: index, onPick: onPick)],
-            const SizedBox(width: 14),
-            Text('${(index + 1).toString().padLeft(2, '0')} / ${juegos.length.toString().padLeft(2, '0')}', style: T.label(size: 12, color: C.ink2)),
-          ]),
-        ),
-        // Tiempo, logros y JUGAR
-        Positioned(
-          right: compact ? 18 : 48,
-          bottom: compact ? 16 : 56,
-          child: Row(children: [
-            _Mini(onTap: onDown, compact: compact, segundos: installer.segundos(g), logros: g.logros.isEmpty ? 0 : g.logros.first.total),
-            SizedBox(width: compact ? 12 : 20),
-            PlayButton(g: g, installer: installer, compact: compact, onTap: onPlay),
-            SizedBox(width: compact ? 8 : 12),
-            GlassButton(icon: Icons.more_horiz_rounded, onTap: () => showPlaySheet(context, g, installer), tooltip: 'Versiones', size: compact ? 42 : 52),
-          ]),
-        ),
-        if (!compact)
+          Embers(enabled: chispas),
+          // Logo y datos
           Positioned(
-            left: inset,
-            right: 0,
-            bottom: 10,
-            child: Center(
-              child: TextButton.icon(
-                onPressed: onDown,
-                style: TextButton.styleFrom(foregroundColor: C.ink3),
-                iconAlignment: IconAlignment.end,
-                icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
-                label: Text('TUS LOGROS', style: T.label(size: 11, color: C.ink3)),
+            right: pad,
+            top: 0,
+            bottom: compact ? 60 : 80,
+            width: MediaQuery.sizeOf(context).width * (compact ? .44 : .42),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 600),
+                switchInCurve: Curves.easeOutCubic,
+                transitionBuilder: (child, a) => FadeTransition(
+                  opacity: a,
+                  child: SlideTransition(
+                    position: Tween(begin: const Offset(0, .06), end: Offset.zero).animate(a),
+                    child: child,
+                  ),
+                ),
+                child: _Info(g, compact: compact, key: ValueKey(g.id)),
               ),
             ),
           ),
-      ]),
+          // Flechas y miniaturas
+          Positioned(
+            left: inset + (compact ? 18 : 44),
+            bottom: compact ? 18 : 52,
+            child: Row(
+              children: [
+                GlassButton(icon: Icons.chevron_left_rounded, onTap: onPrev, tooltip: 'Anterior', size: compact ? 42 : 52),
+                SizedBox(width: compact ? 10 : 14),
+                GlassButton(icon: Icons.chevron_right_rounded, onTap: onNext, tooltip: 'Siguiente', size: compact ? 42 : 52),
+                if (MediaQuery.sizeOf(context).width > 980) ...[const SizedBox(width: 18), _Strip(juegos: juegos, index: index, onPick: onPick)],
+                const SizedBox(width: 14),
+                Text('${(index + 1).toString().padLeft(2, '0')} / ${juegos.length.toString().padLeft(2, '0')}', style: T.label(size: 12, color: C.ink2)),
+              ],
+            ),
+          ),
+          // Tiempo, logros y JUGAR
+          Positioned(
+            right: compact ? 18 : 48,
+            bottom: compact ? 16 : 56,
+            child: Row(
+              children: [
+                _Mini(onTap: onDown, compact: compact, segundos: installer.segundos(g), logros: g.logros.isEmpty ? 0 : g.logros.first.total),
+                SizedBox(width: compact ? 12 : 20),
+                PlayButton(g: g, installer: installer, compact: compact, onTap: onPlay),
+                SizedBox(width: compact ? 8 : 12),
+                GlassButton(icon: Icons.more_horiz_rounded, onTap: () => showPlaySheet(context, g, installer), tooltip: 'Versiones', size: compact ? 42 : 52),
+              ],
+            ),
+          ),
+          if (!compact)
+            Positioned(
+              left: inset,
+              right: 0,
+              bottom: 10,
+              child: Center(
+                child: TextButton.icon(
+                  onPressed: onDown,
+                  style: TextButton.styleFrom(foregroundColor: C.ink3),
+                  iconAlignment: IconAlignment.end,
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                  label: Text('TUS LOGROS', style: T.label(size: 11, color: C.ink3)),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -480,44 +517,65 @@ class _Info extends StatelessWidget {
       textAlign: TextAlign.right,
       maxLines: 3,
       overflow: TextOverflow.ellipsis,
-      style: T.serif(size: compact ? 46 : 78, w: FontWeight.w600, height: .95).copyWith(
-        shadows: const [Shadow(color: Color(0x99000000), blurRadius: 30, offset: Offset(0, 10))],
-      ),
+      style: T
+          .serif(size: compact ? 46 : 78, w: FontWeight.w600, height: .95)
+          .copyWith(
+            shadows: const [Shadow(color: Color(0x99000000), blurRadius: 30, offset: Offset(0, 10))],
+          ),
     );
-    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
-      if (g.logo != null)
-        ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: compact ? 96 : 180),
-          child: NetImg(g.logo, fit: BoxFit.contain, alignment: Alignment.centerRight, fallback: title),
-        )
-      else
-        title,
-      if (g.subtitulo.isNotEmpty) ...[
-        SizedBox(height: compact ? 10 : 16),
-        Text(g.subtitulo, textAlign: TextAlign.right, maxLines: 1, overflow: TextOverflow.ellipsis, style: T.sans(size: compact ? 12 : 14, color: C.ink2)),
-      ],
-      SizedBox(height: compact ? 10 : 18),
-      Text(
-        [g.tiposTexto, '${g.repos.length} ${g.repos.length == 1 ? 'versión' : 'versiones'}'].where((s) => s.isNotEmpty).join(' · ').toUpperCase(),
-        textAlign: TextAlign.right,
-        style: T.label(size: 12, color: C.ink2),
-      ),
-      if (g.descripcion.isNotEmpty && !compact) ...[
-        const SizedBox(height: 12),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Text(g.descripcion, textAlign: TextAlign.right, maxLines: 3, overflow: TextOverflow.ellipsis, style: T.sans(size: 15, color: C.ink2, height: 1.5)),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        if (g.logo != null)
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: compact ? 96 : 180),
+            child: NetImg(g.logo, fit: BoxFit.contain, alignment: Alignment.centerRight, fallback: title),
+          )
+        else
+          title,
+        if (g.subtitulo.isNotEmpty) ...[
+          SizedBox(height: compact ? 10 : 16),
+          Text(
+            g.subtitulo,
+            textAlign: TextAlign.right,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: T.sans(size: compact ? 12 : 14, color: C.ink2),
+          ),
+        ],
+        SizedBox(height: compact ? 10 : 18),
+        Text(
+          [g.tiposTexto, '${g.repos.length} ${g.repos.length == 1 ? 'versión' : 'versiones'}'].where((s) => s.isNotEmpty).join(' · ').toUpperCase(),
+          textAlign: TextAlign.right,
+          style: T.label(size: 12, color: C.ink2),
         ),
+        if (g.descripcion.isNotEmpty && !compact) ...[
+          const SizedBox(height: 12),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Text(
+              g.descripcion,
+              textAlign: TextAlign.right,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: T.sans(size: 15, color: C.ink2, height: 1.5),
+            ),
+          ),
+        ],
+        if (g.dudoso) ...[
+          const SizedBox(height: 10),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.help_outline_rounded, size: 14, color: C.ink3),
+              const SizedBox(width: 6),
+              Text('Nombre sin confirmar', style: T.sans(size: 12, color: C.ink3)),
+            ],
+          ),
+        ],
       ],
-      if (g.dudoso) ...[
-        const SizedBox(height: 10),
-        Row(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.help_outline_rounded, size: 14, color: C.ink3),
-          const SizedBox(width: 6),
-          Text('Nombre sin confirmar', style: T.sans(size: 12, color: C.ink3)),
-        ]),
-      ],
-    ]);
+    );
   }
 }
 
@@ -531,29 +589,34 @@ class _Strip extends StatelessWidget {
   Widget build(BuildContext context) {
     final n = juegos.length, span = n < 9 ? n : 9;
     final start = n <= 9 ? 0 : index - 4;
-    return Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-      for (var k = 0; k < span; k++)
-        Builder(builder: (context) {
-          final i = (start + k + n) % n, on = i == index;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => onPick(i),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOutCubic,
-                width: on ? 44 : 34,
-                height: on ? 62 : 48,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: on ? Border.all(color: C.ink, width: 2) : null,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        for (var k = 0; k < span; k++)
+          Builder(
+            builder: (context) {
+              final i = (start + k + n) % n, on = i == index;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () => onPick(i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOutCubic,
+                    width: on ? 44 : 34,
+                    height: on ? 62 : 48,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: on ? Border.all(color: C.ink, width: 2) : null,
+                    ),
+                    child: Opacity(opacity: on ? 1 : .5, child: Cover(juegos[i], radius: 6, compact: true)),
+                  ),
                 ),
-                child: Opacity(opacity: on ? 1 : .5, child: Cover(juegos[i], radius: 6, compact: true)),
-              ),
-            ),
-          );
-        }),
-    ]);
+              );
+            },
+          ),
+      ],
+    );
   }
 }
 
@@ -577,16 +640,29 @@ class _Mini extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget stat(String v, String l) => Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-          Text(v, style: T.sans(size: compact ? 16 : 20, w: FontWeight.w600, height: 1.1)),
-          Text(l.toUpperCase(), style: T.label(size: 10, color: C.ink3)),
-        ]);
+    Widget stat(String v, String l) => Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          v,
+          style: T.sans(size: compact ? 16 : 20, w: FontWeight.w600, height: 1.1),
+        ),
+        Text(l.toUpperCase(), style: T.label(size: 10, color: C.ink3)),
+      ],
+    );
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(children: [stat(segundos == 0 ? '0 h' : horas(segundos), 'Jugado'), SizedBox(width: compact ? 16 : 26), stat(logros > 0 ? '0/$logros' : '—', 'Logros')]),
+        child: Row(
+          children: [
+            stat(segundos == 0 ? '0 h' : horas(segundos), 'Jugado'),
+            SizedBox(width: compact ? 16 : 26),
+            stat(logros > 0 ? '0/$logros' : '—', 'Logros'),
+          ],
+        ),
       ),
     );
   }
@@ -605,54 +681,79 @@ class _RecordScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final side = compact ? 24.0 : 64.0;
-    return Stack(fit: StackFit.expand, children: [
-      const ColoredBox(color: C.card),
-      ImageFiltered(
-        imageFilter: ui.ImageFilter.blur(sigmaX: 46, sigmaY: 46, tileMode: TileMode.clamp),
-        child: Opacity(opacity: .4, child: NetImg(g.heroSmall ?? g.cover, cacheWidth: 400)),
-      ),
-      const DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x59120E11), Color(0xD1120E11)], stops: [0, .6]),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const ColoredBox(color: C.card),
+        ImageFiltered(
+          imageFilter: ui.ImageFilter.blur(sigmaX: 46, sigmaY: 46, tileMode: TileMode.clamp),
+          child: Opacity(opacity: .4, child: NetImg(g.heroSmall ?? g.cover, cacheWidth: 400)),
         ),
-      ),
-      CustomScrollView(
-        controller: controller,
-        physics: const ClampingScrollPhysics(),
-        slivers: [
-          SliverPersistentHeader(pinned: true, delegate: _Header(g: g, compact: compact, onUp: onUp, side: side + inset)),
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(side + inset, compact ? 28 : 48, side, 56),
-            sliver: SliverList.list(children: [
-              const SectionTitle('Tu partida'),
-              _Stats(compact: compact, segundos: installer.segundos(g), ultima: installer.ultima(g), totalLogros: g.logros.isEmpty ? 0 : g.logros.first.total),
-              SizedBox(height: compact ? 36 : 56),
-              const SectionTitle('Logros'),
-              LogrosDelJuego(g, key: ValueKey('logros-${g.id}')),
-              SizedBox(height: compact ? 36 : 56),
-              SectionTitle('Proyectos', italic: 'en GitHub', trailing: Text('${g.repos.length} ${g.repos.length == 1 ? 'versión' : 'versiones'}', style: T.sans(size: 14, color: C.ink2))),
-              LayoutBuilder(builder: (context, box) {
-                final cols = (box.maxWidth / 340).floor().clamp(1, 4);
-                final w = (box.maxWidth - (cols - 1) * 14) / cols;
-                return Wrap(spacing: 14, runSpacing: 14, children: [for (final r in g.repos) SizedBox(width: w, child: _RepoCard(r))]);
-              }),
-              if (g.notas.isNotEmpty || g.dudoso) ...[
-                SizedBox(height: compact ? 36 : 56),
-                const SectionTitle('Sobre el nombre'),
-                Panel(
-                  child: Text(
-                    [if (g.dudoso) 'El nombre de este juego es una deducción y puede no ser correcto.', ...g.notas].join('\n'),
-                    style: T.sans(size: 14, color: C.ink2, height: 1.6),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 56),
-              Center(child: Text('Hangar · Arte de SteamGridDB · Código de cada proyecto en GitHub', style: T.sans(size: 12, color: C.ink3))),
-            ]),
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x59120E11), Color(0xD1120E11)], stops: [0, .6]),
           ),
-        ],
-      ),
-    ]);
+        ),
+        CustomScrollView(
+          controller: controller,
+          physics: const ClampingScrollPhysics(),
+          slivers: [
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _Header(g: g, compact: compact, onUp: onUp, side: side + inset),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(side + inset, compact ? 28 : 48, side, 56),
+              sliver: SliverList.list(
+                children: [
+                  const SectionTitle('Tu partida'),
+                  _Stats(
+                    compact: compact,
+                    segundos: installer.segundos(g),
+                    ultima: installer.ultima(g),
+                    totalLogros: g.logros.isEmpty ? 0 : g.logros.first.total,
+                  ),
+                  SizedBox(height: compact ? 36 : 56),
+                  const SectionTitle('Logros'),
+                  LogrosDelJuego(g, key: ValueKey('logros-${g.id}')),
+                  SizedBox(height: compact ? 36 : 56),
+                  SectionTitle(
+                    'Proyectos',
+                    italic: 'en GitHub',
+                    trailing: Text('${g.repos.length} ${g.repos.length == 1 ? 'versión' : 'versiones'}', style: T.sans(size: 14, color: C.ink2)),
+                  ),
+                  LayoutBuilder(
+                    builder: (context, box) {
+                      final cols = (box.maxWidth / 340).floor().clamp(1, 4);
+                      final w = (box.maxWidth - (cols - 1) * 14) / cols;
+                      return Wrap(
+                        spacing: 14,
+                        runSpacing: 14,
+                        children: [for (final r in g.repos) SizedBox(width: w, child: _RepoCard(r))],
+                      );
+                    },
+                  ),
+                  if (g.notas.isNotEmpty || g.dudoso) ...[
+                    SizedBox(height: compact ? 36 : 56),
+                    const SectionTitle('Sobre el nombre'),
+                    Panel(
+                      child: Text(
+                        [if (g.dudoso) 'El nombre de este juego es una deducción y puede no ser correcto.', ...g.notas].join('\n'),
+                        style: T.sans(size: 14, color: C.ink2, height: 1.6),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 56),
+                  Center(
+                    child: Text('Hangar · Arte de SteamGridDB · Código de cada proyecto en GitHub', style: T.sans(size: 12, color: C.ink3)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }
 
@@ -670,27 +771,41 @@ class _Header extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => ClipRect(
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-          child: Container(
-            decoration: const BoxDecoration(color: Color(0x99120E11), border: Border(bottom: BorderSide(color: C.line))),
-            padding: EdgeInsets.fromLTRB(side, 0, compact ? 24 : 380, 0),
-            child: Row(children: [
-              GlassButton(icon: Icons.keyboard_arrow_up_rounded, onTap: onUp, tooltip: 'Volver al juego', size: compact ? 38 : 46),
-              const SizedBox(width: 18),
-              SizedBox(width: compact ? 30 : 42, height: compact ? 42 : 60, child: Cover(g, radius: 8, compact: true)),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(g.nombre, maxLines: 1, overflow: TextOverflow.ellipsis, style: T.serif(size: compact ? 20 : 26, w: FontWeight.w600, height: 1.1)),
+    child: BackdropFilter(
+      filter: ui.ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Color(0x99120E11),
+          border: Border(bottom: BorderSide(color: C.line)),
+        ),
+        padding: EdgeInsets.fromLTRB(side, 0, compact ? 24 : 380, 0),
+        child: Row(
+          children: [
+            GlassButton(icon: Icons.keyboard_arrow_up_rounded, onTap: onUp, tooltip: 'Volver al juego', size: compact ? 38 : 46),
+            const SizedBox(width: 18),
+            SizedBox(width: compact ? 30 : 42, height: compact ? 42 : 60, child: Cover(g, radius: 8, compact: true)),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    g.nombre,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: T.serif(size: compact ? 20 : 26, w: FontWeight.w600, height: 1.1),
+                  ),
                   const SizedBox(height: 4),
                   Text(g.tiposTexto.toUpperCase(), style: T.label(size: 11, color: C.ink2)),
-                ]),
+                ],
               ),
-            ]),
-          ),
+            ),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 
   @override
   bool shouldRebuild(_Header old) => old.g != g || old.compact != compact;
@@ -706,37 +821,54 @@ class _Stats extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget tile(String big, String small, String label, {double? bar}) => Padding(
-          padding: EdgeInsets.fromLTRB(28, compact ? 20 : 28, 28, compact ? 20 : 30),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text.rich(
-              TextSpan(children: [
+      padding: EdgeInsets.fromLTRB(28, compact ? 20 : 28, 28, compact ? 20 : 30),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text.rich(
+            TextSpan(
+              children: [
                 TextSpan(text: big),
-                TextSpan(text: ' $small', style: T.sans(size: 18, color: C.ink2)),
-              ]),
-              style: T.sans(size: compact ? 32 : 46, w: FontWeight.w300, height: 1),
+                TextSpan(
+                  text: ' $small',
+                  style: T.sans(size: 18, color: C.ink2),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(label.toUpperCase(), style: T.label(size: 11)),
-            if (bar != null) ...[
-              const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(2),
-                child: LinearProgressIndicator(value: bar, minHeight: 3, color: C.acc, backgroundColor: const Color(0x1AFFFFFF)),
-              ),
-            ],
-          ]),
-        );
-    final t = segundos < 3600 ? ['${(segundos / 60).floor()}', 'min'] : [(segundos / 3600).toStringAsFixed(1).replaceAll('.', ','), 'h'];
-    final tiles = [tile(t[0], t[1], 'Tiempo jugado'), tile('0', totalLogros > 0 ? '/ $totalLogros' : '', 'Logros obtenidos'), tile('0', '%', 'Completado', bar: 0), tile(cuando(ultima), '', 'Última sesión')];
-    return Container(
-      decoration: BoxDecoration(color: const Color(0xD1120E11), borderRadius: BorderRadius.circular(22), border: Border.all(color: C.line)),
-      child: IntrinsicHeight(
-        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          for (var i = 0; i < tiles.length; i++) ...[
-            if (i > 0) const VerticalDivider(width: 1, thickness: 1, color: C.line),
-            Expanded(child: tiles[i]),
+            style: T.sans(size: compact ? 32 : 46, w: FontWeight.w300, height: 1),
+          ),
+          const SizedBox(height: 8),
+          Text(label.toUpperCase(), style: T.label(size: 11)),
+          if (bar != null) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(value: bar, minHeight: 3, color: C.acc, backgroundColor: const Color(0x1AFFFFFF)),
+            ),
           ],
-        ]),
+        ],
+      ),
+    );
+    final t = segundos < 3600 ? ['${(segundos / 60).floor()}', 'min'] : [(segundos / 3600).toStringAsFixed(1).replaceAll('.', ','), 'h'];
+    final tiles = [
+      tile(t[0], t[1], 'Tiempo jugado'),
+      tile('0', totalLogros > 0 ? '/ $totalLogros' : '', 'Logros obtenidos'),
+      tile('0', '%', 'Completado', bar: 0),
+      tile(cuando(ultima), '', 'Última sesión'),
+    ];
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xD1120E11),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: C.line),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < tiles.length; i++) ...[if (i > 0) const VerticalDivider(width: 1, thickness: 1, color: C.line), Expanded(child: tiles[i])],
+          ],
+        ),
       ),
     );
   }
@@ -748,25 +880,39 @@ class _RepoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Panel(
-        onTap: () => launchUrl(Uri.parse(r.url), mode: LaunchMode.externalApplication),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        child: Row(children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(color: C.glass, borderRadius: BorderRadius.circular(14)),
-            child: const Icon(Icons.code_rounded, color: C.ink, size: 22),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: T.sans(size: 15, w: FontWeight.w600)),
+    onTap: () => launchUrl(Uri.parse(r.url), mode: LaunchMode.externalApplication),
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+    child: Row(
+      children: [
+        Container(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(color: C.glass, borderRadius: BorderRadius.circular(14)),
+          child: const Icon(Icons.code_rounded, color: C.ink, size: 22),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                r.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: T.sans(size: 15, w: FontWeight.w600),
+              ),
               const SizedBox(height: 2),
-              Text('${r.owner} · ${tipoLabel[r.tipo] ?? r.tipo}', maxLines: 1, overflow: TextOverflow.ellipsis, style: T.sans(size: 13, color: C.ink2)),
-            ]),
+              Text(
+                '${r.owner} · ${tipoLabel[r.tipo] ?? r.tipo}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: T.sans(size: 13, color: C.ink2),
+              ),
+            ],
           ),
-          const Icon(Icons.north_east_rounded, size: 18, color: C.ink2),
-        ]),
-      );
+        ),
+        const Icon(Icons.north_east_rounded, size: 18, color: C.ink2),
+      ],
+    ),
+  );
 }
-

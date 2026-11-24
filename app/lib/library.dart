@@ -9,6 +9,7 @@ class LibraryScreen extends StatefulWidget {
   final List<Juego> juegos;
   final Set<String> destacados;
   final List<String> recientes;
+
   /// Repos instalados en este dispositivo.
   final Set<String> instalados;
   final FocusNode searchFocus;
@@ -64,8 +65,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
     if (_tipo != null) l = l.where((j) => j.tipos.contains(_tipo) || j.repos.any((r) => r.tipo == _tipo));
     final q = _q.text.trim().toLowerCase();
     if (q.isNotEmpty) {
-      l = l.where((j) =>
-          j.nombre.toLowerCase().contains(q) || j.proyectos.any((p) => p.toLowerCase().contains(q)) || j.repos.any((r) => r.repo.toLowerCase().contains(q)));
+      l = l.where(
+        (j) =>
+            j.nombre.toLowerCase().contains(q) || j.proyectos.any((p) => p.toLowerCase().contains(q)) || j.repos.any((r) => r.repo.toLowerCase().contains(q)),
+      );
     }
     final out = l.toList();
     if (_col == 'recientes') return out;
@@ -87,48 +90,62 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
-        final compact = box.maxHeight < 560, narrow = box.maxWidth < 760;
-        final list = _list;
-        return Row(children: [
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final compact = box.maxHeight < 560, narrow = box.maxWidth < 760;
+      final list = _list;
+      return Row(
+        children: [
           if (!narrow) _Side(state: this, compact: compact),
           Expanded(
-            child: Column(children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(compact ? 18 : 30, compact ? 14 : 26, compact ? 18 : 30, compact ? 10 : 18),
-                child: Row(children: [
-                  Expanded(child: _SearchField(controller: _q, focus: widget.searchFocus, total: widget.juegos.length)),
-                  const SizedBox(width: 12),
-                  if (narrow) _menu('Colección', _col, const {'todos': 'Todos', 'listos': 'Listos para jugar', 'instalados': 'Instalados', 'arte': 'Con portada', 'recientes': 'Recientes'}, (v) => _col = v),
-                  if (narrow) const SizedBox(width: 12),
-                  _menu('Tipo', _tipo ?? '', {'': 'Todos', ...tipoLabel}, (v) => _tipo = v.isEmpty ? null : v),
-                  const SizedBox(width: 12),
-                  _menu('Orden', _orden, const {'arte': 'Con portada primero', 'az': 'Nombre A–Z', 'za': 'Nombre Z–A'}, (v) => _orden = v),
-                ]),
-              ),
-              Expanded(
-                child: list.isEmpty
-                    ? _Empty(q: _q.text)
-                    : GridView.builder(
-                        padding: EdgeInsets.fromLTRB(compact ? 18 : 30, 4, compact ? 18 : 30, 40),
-                        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: compact ? 120 : 160,
-                          childAspectRatio: 2 / 3,
-                          mainAxisSpacing: compact ? 12 : 18,
-                          crossAxisSpacing: compact ? 12 : 18,
-                        ),
-                        itemCount: list.length,
-                        itemBuilder: (context, i) => _Tile(
-                          list[i],
-                          instalado: list[i].repos.any((r) => widget.instalados.contains(r.repo)),
-                          onTap: () => widget.onPick(list[i]),
-                        ),
+            child: Column(
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(compact ? 18 : 30, compact ? 14 : 26, compact ? 18 : 30, compact ? 10 : 18),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _SearchField(controller: _q, focus: widget.searchFocus, total: widget.juegos.length),
                       ),
-              ),
-            ]),
+                      const SizedBox(width: 12),
+                      if (narrow)
+                        _menu('Colección', _col, const {
+                          'todos': 'Todos',
+                          'listos': 'Listos para jugar',
+                          'instalados': 'Instalados',
+                          'arte': 'Con portada',
+                          'recientes': 'Recientes',
+                        }, (v) => _col = v),
+                      if (narrow) const SizedBox(width: 12),
+                      _menu('Tipo', _tipo ?? '', {'': 'Todos', ...tipoLabel}, (v) => _tipo = v.isEmpty ? null : v),
+                      const SizedBox(width: 12),
+                      _menu('Orden', _orden, const {'arte': 'Con portada primero', 'az': 'Nombre A–Z', 'za': 'Nombre Z–A'}, (v) => _orden = v),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: list.isEmpty
+                      ? _Empty(q: _q.text)
+                      : GridView.builder(
+                          padding: EdgeInsets.fromLTRB(compact ? 18 : 30, 4, compact ? 18 : 30, 40),
+                          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: compact ? 120 : 160,
+                            childAspectRatio: 2 / 3,
+                            mainAxisSpacing: compact ? 12 : 18,
+                            crossAxisSpacing: compact ? 12 : 18,
+                          ),
+                          itemCount: list.length,
+                          itemBuilder: (context, i) =>
+                              _Tile(list[i], instalado: list[i].repos.any((r) => widget.instalados.contains(r.repo)), onTap: () => widget.onPick(list[i])),
+                        ),
+                ),
+              ],
+            ),
           ),
-        ]);
-      });
+        ],
+      );
+    },
+  );
 
   Widget _menu(String label, String cur, Map<String, String> opts, ValueChanged<String> set) {
     final active = cur != opts.keys.first;
@@ -136,21 +153,37 @@ class _LibraryScreenState extends State<LibraryScreen> {
       tooltip: label,
       color: C.panel,
       position: PopupMenuPosition.under,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: C.line)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: C.line),
+      ),
       onSelected: (v) => setState(() => set(v)),
       itemBuilder: (_) => [
         for (final e in opts.entries)
-          CheckedPopupMenuItem(value: e.key, checked: e.key == cur, child: Text(e.value, style: T.sans(size: 14))),
+          CheckedPopupMenuItem(
+            value: e.key,
+            checked: e.key == cur,
+            child: Text(e.value, style: T.sans(size: 14)),
+          ),
       ],
       child: Container(
         height: 46,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(color: const Color(0x0FFFFFFF), borderRadius: BorderRadius.circular(14), border: Border.all(color: active ? const Color(0x4DFFFFFF) : C.line)),
-        child: Row(children: [
-          Text((active ? '$label: ${opts[cur]}' : label).toUpperCase(), style: T.label(size: 11, color: active ? C.ink : C.ink2, w: FontWeight.w600)),
-          const SizedBox(width: 8),
-          const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: C.ink2),
-        ]),
+        decoration: BoxDecoration(
+          color: const Color(0x0FFFFFFF),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: active ? const Color(0x4DFFFFFF) : C.line),
+        ),
+        child: Row(
+          children: [
+            Text(
+              (active ? '$label: ${opts[cur]}' : label).toUpperCase(),
+              style: T.label(size: 11, color: active ? C.ink : C.ink2, w: FontWeight.w600),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: C.ink2),
+          ],
+        ),
       ),
     );
   }
@@ -171,24 +204,34 @@ class _Side extends StatelessWidget {
       }
     }
     Widget item(String label, int n, bool on, VoidCallback f) => Padding(
-          padding: const EdgeInsets.only(bottom: 2),
-          child: Material(
-            color: on ? const Color(0x1FF2507F) : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: f,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                child: Row(children: [
-                  Expanded(child: Text(label, style: T.sans(size: 14, color: on ? C.pink : C.ink2, w: on ? FontWeight.w600 : FontWeight.w400))),
-                  Text('$n', style: T.sans(size: 12, color: C.ink3)),
-                ]),
-              ),
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Material(
+        color: on ? const Color(0x1FF2507F) : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: f,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: T.sans(size: 14, color: on ? C.pink : C.ink2, w: on ? FontWeight.w600 : FontWeight.w400),
+                  ),
+                ),
+                Text('$n', style: T.sans(size: 12, color: C.ink3)),
+              ],
             ),
           ),
-        );
-    Widget head(String s) => Padding(padding: const EdgeInsets.fromLTRB(10, 20, 0, 8), child: Text(s.toUpperCase(), style: T.label(size: 11, w: FontWeight.w600)));
+        ),
+      ),
+    );
+    Widget head(String s) => Padding(
+      padding: const EdgeInsets.fromLTRB(10, 20, 0, 8),
+      child: Text(s.toUpperCase(), style: T.label(size: 11, w: FontWeight.w600)),
+    );
     return Container(
       width: compact ? 200 : 250,
       decoration: const BoxDecoration(
@@ -196,43 +239,63 @@ class _Side extends StatelessWidget {
         gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x00120D10), Color(0x29F2507F)], stops: [.55, 1]),
       ),
       padding: EdgeInsets.fromLTRB(16, compact ? 16 : 30, 14, 18),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 8, bottom: 6),
-          child: Row(children: [
-            const Icon(Icons.landscape_outlined, color: C.pink, size: 28),
-            const SizedBox(width: 10),
-            Text('Hangar', style: T.sans(size: 18, w: FontWeight.w700)),
-          ]),
-        ),
-        Expanded(
-          child: ListView(padding: EdgeInsets.zero, children: [
-            head('Mis colecciones'),
-            item('Todos los juegos', w.juegos.length, state._col == 'todos' && state._tipo == null, () => state._upd(() {
-                  state._col = 'todos';
-                  state._tipo = null;
-                })),
-            item('Listos para jugar', w.juegos.where((j) => j.listo).length, state._col == 'listos', () => state._upd(() => state._col = 'listos')),
-            item('Instalados', w.juegos.where((j) => j.repos.any((r) => w.instalados.contains(r.repo))).length, state._col == 'instalados',
-                () => state._upd(() => state._col = 'instalados')),
-            item('Con portada', w.juegos.where((j) => j.cover != null).length, state._col == 'arte', () => state._upd(() => state._col = 'arte')),
-            item('Destacados', w.destacados.length, state._col == 'destacados', () => state._upd(() => state._col = 'destacados')),
-            item('Recientes', w.recientes.length, state._col == 'recientes', () => state._upd(() => state._col = 'recientes')),
-            head('Tipo de proyecto'),
-            for (final e in tipoLabel.entries)
-              if ((counts[e.key] ?? 0) > 0) item(e.value, counts[e.key]!, state._tipo == e.key, () => state._upd(() => state._tipo = state._tipo == e.key ? null : e.key)),
-          ]),
-        ),
-        if (!compact)
-          Center(
-            child: Column(children: [
-              const SizedBox(height: 16),
-              const Avatar(size: 76, glow: C.pink),
-              const SizedBox(height: 10),
-              Text('Tu perfil', style: T.sans(size: 14, w: FontWeight.w600)),
-            ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 8, bottom: 6),
+            child: Row(
+              children: [
+                const Icon(Icons.landscape_outlined, color: C.pink, size: 28),
+                const SizedBox(width: 10),
+                Text('Hangar', style: T.sans(size: 18, w: FontWeight.w700)),
+              ],
+            ),
           ),
-      ]),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                head('Mis colecciones'),
+                item(
+                  'Todos los juegos',
+                  w.juegos.length,
+                  state._col == 'todos' && state._tipo == null,
+                  () => state._upd(() {
+                    state._col = 'todos';
+                    state._tipo = null;
+                  }),
+                ),
+                item('Listos para jugar', w.juegos.where((j) => j.listo).length, state._col == 'listos', () => state._upd(() => state._col = 'listos')),
+                item(
+                  'Instalados',
+                  w.juegos.where((j) => j.repos.any((r) => w.instalados.contains(r.repo))).length,
+                  state._col == 'instalados',
+                  () => state._upd(() => state._col = 'instalados'),
+                ),
+                item('Con portada', w.juegos.where((j) => j.cover != null).length, state._col == 'arte', () => state._upd(() => state._col = 'arte')),
+                item('Destacados', w.destacados.length, state._col == 'destacados', () => state._upd(() => state._col = 'destacados')),
+                item('Recientes', w.recientes.length, state._col == 'recientes', () => state._upd(() => state._col = 'recientes')),
+                head('Tipo de proyecto'),
+                for (final e in tipoLabel.entries)
+                  if ((counts[e.key] ?? 0) > 0)
+                    item(e.value, counts[e.key]!, state._tipo == e.key, () => state._upd(() => state._tipo = state._tipo == e.key ? null : e.key)),
+              ],
+            ),
+          ),
+          if (!compact)
+            Center(
+              child: Column(
+                children: [
+                  const SizedBox(height: 16),
+                  const Avatar(size: 76, glow: C.pink),
+                  const SizedBox(height: 10),
+                  Text('Tu perfil', style: T.sans(size: 14, w: FontWeight.w600)),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -245,25 +308,35 @@ class _SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TextField(
-        controller: controller,
-        focusNode: focus,
-        style: T.sans(size: 14),
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          isDense: true,
-          filled: true,
-          fillColor: const Color(0x0FFFFFFF),
-          hintText: 'Busca entre $total juegos o repos',
-          hintStyle: T.sans(size: 14, color: C.ink3),
-          prefixIcon: const Icon(Icons.search_rounded, color: C.ink2, size: 20),
-          suffixIcon: controller.text.isEmpty
-              ? null
-              : IconButton(icon: const Icon(Icons.close_rounded, size: 18, color: C.ink2), tooltip: 'Borrar', onPressed: controller.clear),
-          contentPadding: const EdgeInsets.symmetric(vertical: 14),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: C.line)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0x59FFFFFF))),
-        ),
-      );
+    controller: controller,
+    focusNode: focus,
+    style: T.sans(size: 14),
+    textInputAction: TextInputAction.search,
+    decoration: InputDecoration(
+      isDense: true,
+      filled: true,
+      fillColor: const Color(0x0FFFFFFF),
+      hintText: 'Busca entre $total juegos o repos',
+      hintStyle: T.sans(size: 14, color: C.ink3),
+      prefixIcon: const Icon(Icons.search_rounded, color: C.ink2, size: 20),
+      suffixIcon: controller.text.isEmpty
+          ? null
+          : IconButton(
+              icon: const Icon(Icons.close_rounded, size: 18, color: C.ink2),
+              tooltip: 'Borrar',
+              onPressed: controller.clear,
+            ),
+      contentPadding: const EdgeInsets.symmetric(vertical: 14),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: C.line),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0x59FFFFFF)),
+      ),
+    ),
+  );
 }
 
 class _Tile extends StatefulWidget {
@@ -301,23 +374,36 @@ class _TileState extends State<_Tile> {
               border: Border.all(color: _on ? C.pink : Colors.transparent, width: 2),
               boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 24, offset: Offset(0, 12))],
             ),
-            child: Stack(fit: StackFit.expand, children: [
-              Cover(widget.j, radius: 14),
-              if (chip != null)
-                Positioned(
-                  left: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                    decoration: BoxDecoration(color: const Color(0xCC0E0A0D), borderRadius: BorderRadius.circular(6)),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Container(width: 6, height: 6, decoration: BoxDecoration(color: chip.$2, shape: BoxShape.circle)),
-                      const SizedBox(width: 5),
-                      Text(chip.$1, style: T.label(size: 9, color: C.ink, w: FontWeight.w600)),
-                    ]),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Cover(widget.j, radius: 14),
+                if (chip != null)
+                  Positioned(
+                    left: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(color: const Color(0xCC0E0A0D), borderRadius: BorderRadius.circular(6)),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(color: chip.$2, shape: BoxShape.circle),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            chip.$1,
+                            style: T.label(size: 9, color: C.ink, w: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-            ]),
+              ],
+            ),
           ),
         ),
       ),
@@ -330,11 +416,17 @@ class _Empty extends StatelessWidget {
   const _Empty({required this.q});
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Nada por aquí', style: T.serif(size: 36)),
-          const SizedBox(height: 8),
-          Text(q.isEmpty ? 'Esta colección está vacía.' : 'Ningún juego coincide con «$q». Prueba con otra palabra o quita algún filtro.', style: T.sans(size: 15, color: C.ink2)),
-        ]),
-      );
+    padding: const EdgeInsets.all(40),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Nada por aquí', style: T.serif(size: 36)),
+        const SizedBox(height: 8),
+        Text(
+          q.isEmpty ? 'Esta colección está vacía.' : 'Ningún juego coincide con «$q». Prueba con otra palabra o quita algún filtro.',
+          style: T.sans(size: 15, color: C.ink2),
+        ),
+      ],
+    ),
+  );
 }

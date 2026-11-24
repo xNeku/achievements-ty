@@ -52,16 +52,27 @@ class Placeholder23 extends StatelessWidget {
         ),
       ),
       child: compact
-          ? Center(child: Text(j.nombre.characters.first.toUpperCase(), style: T.serif(size: 22, w: FontWeight.w600)))
+          ? Center(
+              child: Text(j.nombre.characters.first.toUpperCase(), style: T.serif(size: 22, w: FontWeight.w600)),
+            )
           : Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  if (j.tipos.isNotEmpty) Text(j.tiposTexto.toUpperCase(), style: T.label(size: 9, color: C.ink2, w: FontWeight.w600)),
+                  if (j.tipos.isNotEmpty)
+                    Text(
+                      j.tiposTexto.toUpperCase(),
+                      style: T.label(size: 9, color: C.ink2, w: FontWeight.w600),
+                    ),
                   const SizedBox(height: 6),
-                  Text(j.nombre, maxLines: 4, overflow: TextOverflow.ellipsis, style: T.sans(size: 15, w: FontWeight.w700, height: 1.15)),
+                  Text(
+                    j.nombre,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: T.sans(size: 15, w: FontWeight.w700, height: 1.15),
+                  ),
                 ],
               ),
             ),
@@ -78,9 +89,13 @@ class Cover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: NetImg(j.cover, cacheWidth: compact ? 120 : 320, fallback: Placeholder23(j, compact: compact)),
-      );
+    borderRadius: BorderRadius.circular(radius),
+    child: NetImg(
+      j.cover,
+      cacheWidth: compact ? 120 : 320,
+      fallback: Placeholder23(j, compact: compact),
+    ),
+  );
 }
 
 /// Botón redondo de cristal.
@@ -93,14 +108,20 @@ class GlassButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-        message: tooltip,
-        child: Material(
-          color: C.glass,
-          shape: const CircleBorder(side: BorderSide(color: Color(0x1FFFFFFF))),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(onTap: onTap, child: SizedBox.square(dimension: size, child: Icon(icon, size: size * .42, color: C.ink))),
+    message: tooltip,
+    child: Material(
+      color: C.glass,
+      shape: const CircleBorder(side: BorderSide(color: Color(0x1FFFFFFF))),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox.square(
+          dimension: size,
+          child: Icon(icon, size: size * .42, color: C.ink),
         ),
-      );
+      ),
+    ),
+  );
 }
 
 /// Píldora blanca/cristal "JUGAR".
@@ -113,26 +134,32 @@ class PlayPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-        color: C.glass,
-        shape: const StadiumBorder(side: BorderSide(color: Color(0x24FFFFFF))),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(10, 10, compact ? 22 : 30, 10),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(
-                width: compact ? 30 : 36,
-                height: compact ? 30 : 36,
-                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                child: Icon(icon, color: C.card, size: compact ? 20 : 24),
-              ),
-              SizedBox(width: compact ? 10 : 14),
-              Text(label.toUpperCase(), style: T.label(size: compact ? 12 : 14, color: C.ink, w: FontWeight.w600)),
-            ]),
-          ),
+    color: C.glass,
+    shape: const StadiumBorder(side: BorderSide(color: Color(0x24FFFFFF))),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(10, 10, compact ? 22 : 30, 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: compact ? 30 : 36,
+              height: compact ? 30 : 36,
+              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+              child: Icon(icon, color: C.card, size: compact ? 20 : 24),
+            ),
+            SizedBox(width: compact ? 10 : 14),
+            Text(
+              label.toUpperCase(),
+              style: T.label(size: compact ? 12 : 14, color: C.ink, w: FontWeight.w600),
+            ),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 }
 
 /// Avatar con punto de conexión.
@@ -145,30 +172,40 @@ class Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox.square(
-        dimension: size,
-        child: Stack(clipBehavior: Clip.none, children: [
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF5A4A58),
-              border: Border.all(color: glow ?? const Color(0x2EFFFFFF), width: glow == null ? 2 : 3),
-              boxShadow: glow == null ? null : [BoxShadow(color: glow!.withValues(alpha: .35), blurRadius: 36)],
-            ),
-            alignment: Alignment.center,
-            child: Text(letter, style: T.sans(size: size * .36, w: FontWeight.w600)),
+    dimension: size,
+    child: Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFF5A4A58),
+            border: Border.all(color: glow ?? const Color(0x2EFFFFFF), width: glow == null ? 2 : 3),
+            boxShadow: glow == null ? null : [BoxShadow(color: glow!.withValues(alpha: .35), blurRadius: 36)],
           ),
-          if (online)
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: Container(
-                width: size * .24,
-                height: size * .24,
-                decoration: BoxDecoration(color: C.ok, shape: BoxShape.circle, border: Border.all(color: C.card, width: 3)),
+          alignment: Alignment.center,
+          child: Text(
+            letter,
+            style: T.sans(size: size * .36, w: FontWeight.w600),
+          ),
+        ),
+        if (online)
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              width: size * .24,
+              height: size * .24,
+              decoration: BoxDecoration(
+                color: C.ok,
+                shape: BoxShape.circle,
+                border: Border.all(color: C.card, width: 3),
               ),
             ),
-        ]),
-      );
+          ),
+      ],
+    ),
+  );
 }
 
 /// Chispas que suben despacio, del color del acento.
@@ -214,7 +251,11 @@ class _EmbersState extends State<Embers> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     if (!widget.enabled || MediaQuery.of(context).disableAnimations) return const SizedBox.shrink();
-    return IgnorePointer(child: RepaintBoundary(child: CustomPaint(painter: _EmberPainter(_ps, widget.tint, _clock), size: Size.infinite)));
+    return IgnorePointer(
+      child: RepaintBoundary(
+        child: CustomPaint(painter: _EmberPainter(_ps, widget.tint, _clock), size: Size.infinite),
+      ),
+    );
   }
 }
 
@@ -271,17 +312,29 @@ class SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 22),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Expanded(
-            child: Text.rich(TextSpan(children: [
-              TextSpan(text: text),
-              if (italic != null) TextSpan(text: ' $italic', style: T.serif(size: 44, style: FontStyle.italic, color: C.ink2)),
-            ]), style: T.serif(size: 44)),
+    padding: const EdgeInsets.only(bottom: 22),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: text),
+                if (italic != null)
+                  TextSpan(
+                    text: ' $italic',
+                    style: T.serif(size: 44, style: FontStyle.italic, color: C.ink2),
+                  ),
+              ],
+            ),
+            style: T.serif(size: 44),
           ),
-          ?trailing,
-        ]),
-      );
+        ),
+        ?trailing,
+      ],
+    ),
+  );
 }
 
 /// Panel con borde fino.
@@ -294,9 +347,15 @@ class Panel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-        color: const Color(0xC7120E11),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius), side: const BorderSide(color: C.line)),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
-      );
+    color: const Color(0xC7120E11),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(radius),
+      side: const BorderSide(color: C.line),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      child: Padding(padding: padding, child: child),
+    ),
+  );
 }
