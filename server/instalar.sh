@@ -138,6 +138,13 @@ if command -v getenforce >/dev/null && [ "$(getenforce)" != "Disabled" ]; then
   semanage fcontext -a -t httpd_sys_content_t "$DIR/logros(/.*)?" 2>/dev/null || semanage fcontext -m -t httpd_sys_content_t "$DIR/logros(/.*)?" || true
   restorecon -R "$DIR/logros" || true
 fi
+# CSF (ConfigServer Firewall), habitual en VPS con panel: añadimos el puerto de HTTPS si falta.
+if [ -f /etc/csf/csf.conf ] && command -v csf >/dev/null; then
+  for k in TCP_IN TCP6_IN; do
+    grep -qE "^$k = \"([^\"]*,)?$HTTPS_PORT(,[^\"]*)?\"" /etc/csf/csf.conf || sed -i "/^$k = /s/\"\$/,$HTTPS_PORT\"/" /etc/csf/csf.conf
+  done
+  csf -r >/dev/null && echo "CSF: puerto $HTTPS_PORT abierto."
+fi
 if systemctl is-active --quiet firewalld; then
   firewall-cmd -q --permanent --add-service=http --add-service=https --add-port="$HTTPS_PORT/tcp"
   firewall-cmd -q --reload
