@@ -380,17 +380,23 @@ class _AjustesScreenState extends State<AjustesScreen> {
                 for (final (c, n) in const [('es', 'Español'), ('en', 'English')])
                   Padding(
                     padding: const EdgeInsets.only(left: 8),
-                    child: ChoiceChip(
-                      selected: idioma.codigo == c,
-                      onSelected: (_) => idioma.poner(c),
-                      showCheckmark: false,
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                      labelPadding: const EdgeInsets.only(left: 4, right: 6),
-                      avatar: Bandera(c, ancho: 20),
-                      label: Text(n, style: T.sans(size: 13)),
-                      selectedColor: const Color(0x33E8463B),
-                      backgroundColor: Colors.transparent,
-                      side: BorderSide(color: idioma.codigo == c ? C.acc : C.line),
+                    child: Material(
+                      color: idioma.codigo == c ? const Color(0x33E8463B) : Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(color: idioma.codigo == c ? C.acc : C.line),
+                      ),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => idioma.poner(c),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [Bandera(c, ancho: 22), const SizedBox(width: 8), Text(n, maxLines: 1, softWrap: false, overflow: TextOverflow.visible, style: T.sans(size: 13))],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
               ],
