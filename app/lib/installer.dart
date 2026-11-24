@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'data.dart';
+import 'idioma.dart';
 
 enum Fase { nada, descargando, preparando, listo, jugando }
 
@@ -215,10 +216,10 @@ class Installer extends ChangeNotifier {
   static String _explicar(Object e) => switch (e) {
         InstallError() => '$e',
         SocketException() || HttpException() || TimeoutException() || HandshakeException() =>
-          'Se ha cortado la conexión. Pulsa Instalar otra vez y seguirá desde donde se quedó.',
+          t('Se ha cortado la conexión. Pulsa Instalar otra vez y seguirá desde donde se quedó.'),
         FileSystemException(:final osError) when (osError?.errorCode == 28) =>
-          'No queda espacio en el dispositivo para descargar el juego.',
-        _ => 'Algo ha fallado al instalar: $e',
+          t('No queda espacio en el dispositivo para descargar el juego.'),
+        _ => t('Algo ha fallado al instalar: {0}', [e]),
       };
 
   Future<Uri> _resolver(Repo r, {required bool apk}) async {
@@ -234,11 +235,11 @@ class Installer extends ChangeNotifier {
         ? 'https://api.github.com/repos/${r.repo}/releases/tags/${Uri.encodeComponent(m!.tag!)}'
         : 'https://api.github.com/repos/${r.repo}/releases?per_page=10';
     final res = await http.get(Uri.parse(api), headers: {'Accept': 'application/vnd.github+json'}).timeout(const Duration(seconds: 20));
-    if (res.statusCode == 403 || res.statusCode == 429) throw InstallError('GitHub ha limitado las consultas. Prueba dentro de un rato.');
-    if (res.statusCode != 200) throw InstallError('Este proyecto no tiene ninguna versión publicada en GitHub.');
+    if (res.statusCode == 403 || res.statusCode == 429) throw InstallError(t('GitHub ha limitado las consultas. Prueba dentro de un rato.'));
+    if (res.statusCode != 200) throw InstallError(t('Este proyecto no tiene ninguna versión publicada en GitHub.'));
     final body = jsonDecode(res.body);
     final releases = (body is List ? body : [body]).cast<Map<String, dynamic>>().where((x) => x['draft'] != true).toList();
-    if (releases.isEmpty) throw InstallError('Este proyecto no tiene ninguna versión publicada en GitHub.');
+    if (releases.isEmpty) throw InstallError(t('Este proyecto no tiene ninguna versión publicada en GitHub.'));
     // La primera release que traiga lo que buscamos.
     final assets =
         (releases.firstWhere(
@@ -264,7 +265,7 @@ class Installer extends ChangeNotifier {
 
       apks.sort((a, b) => score(b) - score(a));
       if (apks.isNotEmpty) pick = apks.first;
-      if (pick == null) throw InstallError('La última versión de este proyecto no trae un APK para instalar.');
+      if (pick == null) throw InstallError(t('La última versión de este proyecto no trae un APK para instalar.'));
     } else {
       final re = RegExp('^${m!.asset!.split('*').map(RegExp.escape).join('.*')}\$', caseSensitive: false);
       for (final a in assets) {
@@ -273,7 +274,7 @@ class Installer extends ChangeNotifier {
           break;
         }
       }
-      if (pick == null) throw InstallError('No encuentro la descarga para Mac en la versión ${m.tag ?? 'actual'}.');
+      if (pick == null) throw InstallError(t('No encuentro la descarga para Mac en la versión {0}.', [m.tag ?? 'actual']));
     }
     return Uri.parse('${pick['browser_download_url']}');
   }
@@ -312,7 +313,7 @@ class Installer extends ChangeNotifier {
           return await part.rename(dest.path);
         }
         if (res.statusCode != 200 && res.statusCode != 206) {
-          throw InstallError('La descarga ha fallado (HTTP ${res.statusCode}).');
+          throw InstallError(t('La descarga ha fallado (HTTP {0}).', [res.statusCode]));
         }
         if (res.statusCode == 200) got = 0; // el servidor no admite continuar: desde el principio
         final total = res.contentLength < 0 ? -1 : got + res.contentLength;
@@ -338,8 +339,8 @@ class Installer extends ChangeNotifier {
           final hecho = await part.exists() ? await part.length() : 0;
           throw InstallError(
             hecho > 0
-                ? 'Se ha cortado la conexión. Pulsa Instalar otra vez y seguirá desde donde se quedó.'
-                : 'No hay conexión para descargar. Comprueba el internet y vuelve a intentarlo.',
+                ? t('Se ha cortado la conexión. Pulsa Instalar otra vez y seguirá desde donde se quedó.')
+                : t('No hay conexión para descargar. Comprueba el internet y vuelve a intentarlo.'),
           );
         }
         _set(r, Fase.descargando, p: _prog[r.repo], force: true);
@@ -352,7 +353,7 @@ class Installer extends ChangeNotifier {
 
   Future<String> _run(String cmd, List<String> args, {String? cwd}) async {
     final res = await Process.run(cmd, args, workingDirectory: cwd);
-    if (res.exitCode != 0) throw InstallError('Falló $cmd: ${'${res.stderr}'.trim().split('\n').last}');
+    if (res.exitCode != 0) throw InstallError(t('Falló {0}: {1}', [cmd, '${res.stderr}'.trim().split('\n').last]));
     return '${res.stdout}';
   }
 
@@ -375,7 +376,7 @@ class Installer extends ChangeNotifier {
     _set(r, Fase.preparando);
     if (m.sha256 != null && url.toString().contains(m.file ?? '\u0000')) {
       final sum = (await _run('shasum', ['-a', '256', archive.path])).split(' ').first.trim();
-      if (sum.toLowerCase() != m.sha256!.toLowerCase()) throw InstallError('El archivo descargado no coincide con el del catálogo. No lo instalo.');
+      if (sum.toLowerCase() != m.sha256!.toLowerCase()) throw InstallError(t('El archivo descargado no coincide con el del catálogo. No lo instalo.'));
     }
     final out = Directory('${tmp.path}/out')..createSync();
     if (lower.endsWith('.zip')) {
@@ -409,7 +410,7 @@ class Installer extends ChangeNotifier {
     if (await descargas.exists()) await descargas.delete(recursive: true);
 
     final target = _buscarArranque(dir, m);
-    if (target == null) throw InstallError('Descargado, pero no encuentro la app dentro. Ábrelo desde la carpeta.');
+    if (target == null) throw InstallError(t('Descargado, pero no encuentro la app dentro. Ábrelo desde la carpeta.'));
     _hechos[r.repo] = Instalado(dir: dir.path, target: target, version: m.tag ?? m.version ?? '');
     _save();
   }
@@ -452,20 +453,20 @@ class Installer extends ChangeNotifier {
     final apk = await _descargar(r, url, File('${cache.path}/apks/${r.repo.replaceAll('/', '__')}.apk'));
     _set(r, Fase.preparando);
     final pkg = await _android.invokeMethod<String>('packageOf', apk.path);
-    if (pkg == null) throw InstallError('El APK descargado no es válido.');
+    if (pkg == null) throw InstallError(t('El APK descargado no es válido.'));
     final segs = url.pathSegments;
     final version = r.android?.tag ?? (segs.length > 2 ? Uri.decodeComponent(segs[segs.length - 2]) : '');
     _hechos[r.repo] = Instalado(dir: cache.path, target: apk.path, version: version, paquete: pkg);
     _save();
     final ok = await _android.invokeMethod<bool>('install', apk.path);
-    if (ok != true) throw InstallError('Permite a Hangar instalar apps y vuelve a pulsar Instalar.');
+    if (ok != true) throw InstallError(t('Permite a Hangar instalar apps y vuelve a pulsar Instalar.'));
   }
 
   // ───────────────────────── jugar ─────────────────────────
 
   /// Pide la copia del juego (un archivo de tu disco) y la recuerda para este port.
   Future<String?> elegirCopia(Repo r) async {
-    final f = await openFile(confirmButtonText: 'Usar esta copia');
+    final f = await openFile(confirmButtonText: t('Usar esta copia'));
     if (f == null) return null;
     final aviso = await comprobarCopia(r, f.path);
     if (aviso == null) {
@@ -492,8 +493,10 @@ class Installer extends ChangeNotifier {
       _save();
       notifyListeners();
       final ok = await _android.invokeMethod<bool>('launch', rec.paquete);
+      // Sin permiso de uso, Hangar cuenta él mismo: desde que abre el juego hasta que vuelves.
+      if (ok == true) _p?.setString('lanzado', jsonEncode({'repo': r.repo, 't': DateTime.now().millisecondsSinceEpoch}));
       if (ok != true) {
-        _err[r.repo] = 'No se pudo abrir. Puede que ya no esté instalado.';
+        _err[r.repo] = t('No se pudo abrir. Puede que ya no esté instalado.');
         await comprobar();
       }
       return;
@@ -518,7 +521,7 @@ class Installer extends ChangeNotifier {
       }
       await proc.exitCode;
     } catch (e) {
-      _err[r.repo] = 'No se pudo abrir: $e';
+      _err[r.repo] = t('No se pudo abrir: {0}', [e]);
     } finally {
       final secs = DateTime.now().difference(start).inSeconds;
       final cur = _hechos[r.repo];
@@ -554,21 +557,21 @@ class Installer extends ChangeNotifier {
     final m = r.mac;
     if (m == null) return null;
     final f = File(path);
-    if (!await f.exists()) return 'No encuentro el archivo.';
+    if (!await f.exists()) return t('No encuentro el archivo.');
     final ext = path.toLowerCase().split('.').last;
     if (m.ids.isNotEmpty && (ext == 'iso' || ext == 'gcm')) {
       final raf = await f.open();
       final head = String.fromCharCodes(await raf.read(6));
       await raf.close();
-      if (!m.ids.any((id) => head.startsWith(id))) return 'Este disco no parece el que pide el port (ID $head; vale ${m.ids.join(', ')}).';
+      if (!m.ids.any((id) => head.startsWith(id))) return t('Este disco no parece el que pide el port (ID {0}; vale {1}).', [head, m.ids.join(', ')]);
     }
     if (m.dumps.isNotEmpty) {
       final size = await f.length();
       final mismos = m.dumps.where((d) => d.size == size).toList();
-      if (mismos.isEmpty) return 'El tamaño no coincide con ninguna versión válida (${m.dumps.map((d) => d.name).join(', ')}).';
+      if (mismos.isEmpty) return t('El tamaño no coincide con ninguna versión válida ({0}).', [m.dumps.map((d) => d.name).join(', ')]);
       if (size <= 256 * 1024 * 1024) {
         final crc = (await _crc32(f)).toRadixString(16).toUpperCase().padLeft(8, '0');
-        if (!mismos.any((d) => d.crc32 == crc)) return 'La ROM no coincide con la versión que pide el port (CRC $crc).';
+        if (!mismos.any((d) => d.crc32 == crc)) return t('La ROM no coincide con la versión que pide el port (CRC {0}).', [crc]);
       }
     }
     return null;
@@ -603,6 +606,7 @@ class Installer extends ChangeNotifier {
   Future<void> leerUso() async {
     if (!esAndroid) return;
     permisoUso = await _android.invokeMethod<bool>('hasUsage') == true;
+    _cerrarSesionPropia();
     if (!permisoUso) return notifyListeners();
     final pkgs = [
       for (final r in _hechos.values)
@@ -625,4 +629,24 @@ class Installer extends ChangeNotifier {
   }
 
   Future<void> pedirPermisoUso() => _android.invokeMethod('askUsage');
+
+  /// Abre la info de Hangar en Ajustes (para permitir los «ajustes restringidos»).
+  Future<void> abrirInfoApp() => _android.invokeMethod('appInfo');
+
+  /// Al volver a Hangar después de jugar: si no hay permiso de uso, suma el tiempo que ha pasado.
+  void _cerrarSesionPropia() {
+    final raw = _p?.getString('lanzado');
+    if (raw == null) return;
+    _p?.remove('lanzado');
+    if (permisoUso) return; // el sistema lo mide mejor
+    try {
+      final m = jsonDecode(raw) as Map;
+      final rec = _hechos[m['repo']];
+      final secs = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(m['t'] as int)).inSeconds;
+      // Menos de 10 s es abrir y cerrar; más de 6 h, que se quedó abierto: se cuenta hasta 6 h.
+      if (rec == null || secs < 10) return;
+      _hechos[m['repo']] = rec.copyWith(segundos: rec.segundos + secs.clamp(0, 6 * 3600), ultima: DateTime.now());
+      _save();
+    } catch (_) {}
+  }
 }

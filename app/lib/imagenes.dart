@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'comunidad.dart';
+import 'idioma.dart';
 import 'data.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -22,7 +23,7 @@ class _Selector extends StatefulWidget {
 
 class _SelectorState extends State<_Selector> {
   String _tipo = 'portada';
-  static const _tipos = {'portada': 'Portada', 'hero': 'Fondo', 'logo': 'Logo'};
+  Map<String, String> get _tipos => {'portada': t('Portada'), 'hero': t('Fondo'), 'logo': 'Logo'};
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -49,7 +50,7 @@ class _SelectorState extends State<_Selector> {
               Row(children: [
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Imágenes', style: T.serif(size: 34)),
+                    Text(t('Imágenes'), style: T.serif(size: 34)),
                     Text(g.nombre, maxLines: 1, overflow: TextOverflow.ellipsis, style: T.sans(size: 14, color: C.ink2)),
                   ]),
                 ),
@@ -70,14 +71,14 @@ class _SelectorState extends State<_Selector> {
                   onSelectionChanged: (v) => setState(() => _tipo = v.first),
                 ),
                 const SizedBox(width: 8),
-                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded, color: C.ink2), tooltip: 'Cerrar'),
+                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded, color: C.ink2), tooltip: t('Cerrar')),
               ]),
               const SizedBox(height: 18),
               Expanded(
                 child: ops.isEmpty
                     ? Center(
                         child: Text(
-                          'Todavía no hay ${_tipos[_tipo]!.toLowerCase()} para este juego.',
+                          t('Todavía no hay {0} para este juego.', [_tipos[_tipo]!.toLowerCase()]),
                           style: T.sans(size: 15, color: C.ink2),
                         ),
                       )
@@ -117,7 +118,7 @@ class _SelectorState extends State<_Selector> {
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(color: const Color(0xD90E0A0D), borderRadius: BorderRadius.circular(8)),
-                                        child: Text('CATÁLOGO', style: T.label(size: 9, color: C.ink2, w: FontWeight.w600)),
+                                        child: Text(t('CATÁLOGO'), style: T.label(size: 9, color: C.ink2, w: FontWeight.w600)),
                                       ),
                                     ),
                                   if (on)
@@ -137,14 +138,14 @@ class _SelectorState extends State<_Selector> {
               Row(children: [
                 Expanded(
                   child: Text(
-                    'Lo que elijas solo cambia en este dispositivo. ¿Tienes una mejor? Propónla y saldrá para todos.',
+                    t('Lo que elijas solo cambia en este dispositivo. ¿Tienes una mejor? Propónla y saldrá para todos.'),
                     style: T.sans(size: 13, color: C.ink3),
                   ),
                 ),
                 TextButton.icon(
                   onPressed: () => mejorarImagenes(g),
                   icon: const Icon(Icons.add_photo_alternate_outlined, size: 18, color: C.ink),
-                  label: Text('PROPONER OTRA', style: T.label(size: 11, color: C.ink, w: FontWeight.w600)),
+                  label: Text(t('PROPONER OTRA'), style: T.label(size: 11, color: C.ink, w: FontWeight.w600)),
                 ),
               ]),
             ]),

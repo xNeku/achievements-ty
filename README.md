@@ -55,20 +55,28 @@ El script instala todo, crea la cuenta del panel (te enseña la contraseña una 
 
 Para que las apps lo usen sin escribirlo a mano, guarda la dirección en GitHub como variable del repo `HANGAR_SERVER` (Settings → Secrets and variables → Actions → Variables). También se puede escribir en Ajustes → Cuenta de Hangar.
 
-## La comunidad añade ports e imágenes
+## Los desarrolladores publican sus ports
 
-- **Proponer un port**: botón `+` de la biblioteca (o «Proponer un port» en Ajustes). Abre el formulario
-  `.github/ISSUE_TEMPLATE/nuevo-port.yml`. Un bot (`.github/workflows/propuestas.yml` + `tools/propuestas.py`)
-  revisa el repositorio, busca el APK o la descarga de Mac y comenta lo que ve.
-- **Aprobar**: alguien con permiso en el repo le pone la etiqueta `aprobado`. El bot lo añade a
-  `data/juegos.json` / `data/juegos-mac.json`, lo revisa, cierra la issue y lanza la build. La app lo
-  ve al momento (lee el catálogo de `main`), sin actualizarse.
-- **Imágenes**: cada juego trae alternativas de SteamGridDB (`tools/arte/steamgriddb.py`, secreto
-  `SGDB_API_KEY`). En la app, «Cambiar imágenes» en el panel de versiones deja elegir portada, fondo y
-  logo (se guarda en el dispositivo). Si ninguna convence, «Proponer otra» abre `mejorar-imagenes.yml`,
-  que sigue el mismo camino de aprobación y cambia la imagen para todos.
+Hangar se alimenta de quien hace los ports. Guía para ellos (en inglés): [PUBLISH.md](PUBLISH.md).
+
+- **Formulario** `.github/ISSUE_TEMPLATE/publicar-port.yml` (bilingüe). Desde la app: botón `+` de la biblioteca o
+  «¿Haces ports?» en Ajustes. Un bot (`.github/workflows/propuestas.yml` + `tools/propuestas.py`) revisa el repo,
+  su `hangar.json`, el APK o la descarga de Mac, y comenta lo que ve.
+- **Tema `hangar-port`**: cada día el bot busca repos con ese tema y abre una issue ya revisada para cada uno nuevo.
+- **`hangar.json`** en el repo del port: su autor decide descripción, requisitos, qué APK o archivo de Mac bajar, cómo
+  arrancarlo e imágenes. `tools/revisar_catalogo.py` lo relee en cada build. Lleva el sello **del autor** en la app
+  (también si lo envía el dueño del repo).
+- **Aprobar**: etiqueta `aprobado` (solo quien tiene permiso en el repo). Entra en `data/juegos*.json`, se cierra la
+  issue y se lanza la build. La app lo ve al momento (lee el catálogo de `main`), sin actualizarse.
+- **Imágenes**: alternativas de SteamGridDB (`tools/arte/steamgriddb.py`, secreto `SGDB_API_KEY`), elegibles en la app
+  con «Cambiar imágenes»; «Proponer otra» abre `mejorar-imagenes.yml`, con la misma aprobación.
 
 Las issues solo disparan workflows de la rama principal: esto funciona cuando está en `main`.
+
+## Idioma
+
+Castellano e inglés. La bandera de la barra lateral (o Ajustes → Idioma) cambia al momento. Los textos se escriben en
+castellano dentro de `t('…')` y su traducción va en `app/lib/en.dart`; un test falla si alguno no está traducido.
 
 ## Modo Big Picture
 

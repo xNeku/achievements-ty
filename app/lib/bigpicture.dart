@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'data.dart';
+import 'idioma.dart';
 import 'installer.dart';
 import 'play.dart';
 import 'theme.dart';
@@ -55,9 +56,9 @@ class _BigPictureState extends State<BigPicture> {
     final listos = widget.juegos.where((j) => j.listo && !instalado(j) && j.cover != null).take(40).toList();
     final destacados = widget.destacados.where((j) => !instalado(j)).take(30).toList();
     return [
-      if (seguir.isNotEmpty) ('Seguir jugando', seguir),
-      if (listos.isNotEmpty) ('Listos para jugar', listos),
-      if (destacados.isNotEmpty) ('Destacados', destacados),
+      if (seguir.isNotEmpty) (t('Seguir jugando'), seguir),
+      if (listos.isNotEmpty) (t('Listos para jugar'), listos),
+      if (destacados.isNotEmpty) (t('Destacados'), destacados),
     ];
   }
 
@@ -144,8 +145,8 @@ class _BigPictureState extends State<BigPicture> {
                                 Text(
                                   [
                                     g.tiposTexto,
-                                    if (widget.installer.segundos(g) > 0) '${(widget.installer.segundos(g) / 3600).toStringAsFixed(1).replaceAll('.', ',')} h jugadas',
-                                    if (g.logros.isNotEmpty) '${g.logros.first.total} logros',
+                                    if (widget.installer.segundos(g) > 0) t('{0} h jugadas', [(widget.installer.segundos(g) / 3600).toStringAsFixed(1).replaceAll('.', idioma.ingles ? '.' : ',')]),
+                                    if (g.logros.isNotEmpty) t('{0} logros', [g.logros.first.total]),
                                   ].where((s) => s.isNotEmpty).join(' · ').toUpperCase(),
                                   style: T.label(size: 12, color: C.ink2),
                                 ),
@@ -158,7 +159,7 @@ class _BigPictureState extends State<BigPicture> {
                     // Filas
                     Expanded(
                       child: filas.isEmpty
-                          ? Center(child: Text('No hay juegos que mostrar todavía.', style: T.sans(size: 18, color: C.ink2)))
+                          ? Center(child: Text(t('No hay juegos que mostrar todavía.'), style: T.sans(size: 18, color: C.ink2)))
                           : ListView(
                               padding: const EdgeInsets.fromLTRB(0, 12, 0, 24),
                               children: [
@@ -178,14 +179,14 @@ class _BigPictureState extends State<BigPicture> {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(56, 0, 56, 22),
                       child: Row(children: [
-                        _Boton('A', 'Jugar', const Color(0xFF44D27A)),
-                        _Boton('Y', 'Versiones', const Color(0xFFE9B949)),
-                        _Boton('B', 'Salir', const Color(0xFFE8463B)),
+                        _Boton('A', t('Jugar'), const Color(0xFF44D27A)),
+                        _Boton('Y', t('Versiones'), const Color(0xFFE9B949)),
+                        _Boton('B', t('Salir'), const Color(0xFFE8463B)),
                         const Spacer(),
                         TextButton.icon(
                           onPressed: () => Navigator.of(context).maybePop(),
                           icon: const Icon(Icons.close_fullscreen_rounded, color: C.ink2, size: 18),
-                          label: Text('SALIR DE BIG PICTURE', style: T.label(size: 11, color: C.ink2, w: FontWeight.w600)),
+                          label: Text(t('SALIR DE BIG PICTURE'), style: T.label(size: 11, color: C.ink2, w: FontWeight.w600)),
                         ),
                       ]),
                     ),

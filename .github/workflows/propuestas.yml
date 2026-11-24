@@ -1,7 +1,8 @@
-name: Propuestas de la comunidad
+name: Publicar ports
 
-# Ports e imágenes que propone la gente con los formularios de issues.
-#  - Al abrir o editar la propuesta, un bot revisa el repositorio y comenta lo que ve.
+# Ports e imágenes que publican los desarrolladores (y la comunidad) con los formularios de issues.
+#  - Al abrir o editar la issue, un bot revisa el repositorio y su hangar.json y comenta lo que ve.
+#  - Cada día busca repos con el tema «hangar-port» y abre una issue ya revisada para cada uno nuevo.
 #  - Cuando alguien del equipo pone la etiqueta «aprobado», entra en el catálogo y se cierra la issue.
 # Solo quien tiene permiso en el repo puede poner etiquetas, así que nadie se cuela solo.
 # (Las issues solo disparan los workflows de la rama principal.)
@@ -12,6 +13,8 @@ on:
   push:
     paths:
       - '.github/workflows/propuestas.yml'
+  schedule:
+    - cron: '17 4 * * *'
   workflow_dispatch:
 
 permissions:
@@ -32,14 +35,37 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh label create propuesta-port --color 2EA44F --description "Port propuesto por la comunidad" --force
+          gh label create publicar-port --color 2EA44F --description "Port para publicar en Hangar" --force
           gh label create imagenes --color 1D76DB --description "Imágenes propuestas para un juego" --force
           gh label create aprobado --color F2507F --description "Lo añade al catálogo de Hangar" --force
+
+  # Repos con el tema «hangar-port»: se abre una issue (ya revisada) para que el equipo la apruebe.
+  descubrir:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: etiquetas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Buscar ports nuevos
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/propuestas.py descubrir
+      - name: Abrir una issue por cada uno
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          shopt -s nullglob
+          for f in build/descubiertos/*.md; do
+            gh issue create --title "$(cat "${f%.md}.titulo")" --body-file "$f" --label publicar-port
+          done
 
   revisar:
     if: >-
       github.event_name == 'issues' && github.event.action != 'labeled' && github.event.issue.state == 'open' &&
-      (contains(github.event.issue.labels.*.name, 'propuesta-port') || contains(github.event.issue.labels.*.name, 'imagenes'))
+      (contains(github.event.issue.labels.*.name, 'publicar-port') || contains(github.event.issue.labels.*.name, 'imagenes'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -57,7 +83,7 @@ jobs:
   aplicar:
     if: >-
       github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'aprobado' &&
-      (contains(github.event.issue.labels.*.name, 'propuesta-port') || contains(github.event.issue.labels.*.name, 'imagenes'))
+      (contains(github.event.issue.labels.*.name, 'publicar-port') || contains(github.event.issue.labels.*.name, 'imagenes'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

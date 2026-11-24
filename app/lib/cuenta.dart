@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'data.dart';
+import 'idioma.dart';
 import 'installer.dart';
 import 'logros.dart';
 
@@ -78,7 +79,7 @@ class Cuenta extends ChangeNotifier {
   Map<String, String> get _h => {'Content-Type': 'application/json', 'Authorization': ?token};
 
   Future<dynamic> _req(String metodo, String path, {Object? body, Map<String, String>? q}) async {
-    if (!configurado) throw CuentaError('Falta la dirección del servidor de Hangar.');
+    if (!configurado) throw CuentaError(t('Falta la dirección del servidor de Hangar.'));
     final req = http.Request(metodo, _u(path, q))..headers.addAll(_h);
     if (body != null) req.body = jsonEncode(body);
     final res = await http.Response.fromStream(await req.send().timeout(const Duration(seconds: 15)));
@@ -89,7 +90,7 @@ class Cuenta extends ChangeNotifier {
       final campos = data is Map && data['data'] is Map
           ? (data['data'] as Map).values.map((v) => v is Map ? v['message'] : '').where((m) => '$m'.isNotEmpty).join(' ')
           : '';
-      throw CuentaError([msg, campos].where((s) => '$s'.isNotEmpty).join(' · ').ifEmpty('Error ${res.statusCode}'));
+      throw CuentaError([msg, campos].where((s) => '$s'.isNotEmpty).join(' · ').ifEmpty(t('Error {0}', [res.statusCode])));
     }
     return data;
   }
@@ -103,7 +104,7 @@ class Cuenta extends ChangeNotifier {
     } on CuentaError catch (e) {
       error = e.msg;
     } catch (e) {
-      error = 'No hay conexión con el servidor.';
+      error = t('No hay conexión con el servidor.');
       debugPrint('$e');
     } finally {
       ocupado = false;
@@ -222,7 +223,7 @@ class Cuenta extends ChangeNotifier {
           () {
             final laPedi = r['de'] == userId;
             final otro = (r['expand'] as Map?)?[laPedi ? 'para' : 'de'] as Map?;
-            return Amistad(r['id'], r['estado'], Amigo(otro?['id'] ?? '', (otro?['nombre'] as String?)?.ifEmpty('Sin nombre') ?? 'Sin nombre'), laPedi);
+            return Amistad(r['id'], r['estado'], Amigo(otro?['id'] ?? '', (otro?['nombre'] as String?)?.ifEmpty(t('Sin nombre')) ?? t('Sin nombre')), laPedi);
           }(),
       ];
       for (final a in amigos) {
@@ -240,7 +241,7 @@ class Cuenta extends ChangeNotifier {
     final limpio = q.trim().replaceAll("'", '');
     final res = await _hacer(() => _req('GET', '/api/collections/users/records', q: {'filter': "nombre~'$limpio' && id!='$userId'", 'perPage': '20'}));
     if (res is! Map) return const [];
-    return [for (final r in res['items'] as List) Amigo(r['id'], (r['nombre'] as String?)?.ifEmpty('Sin nombre') ?? 'Sin nombre')];
+    return [for (final r in res['items'] as List) Amigo(r['id'], (r['nombre'] as String?)?.ifEmpty(t('Sin nombre')) ?? t('Sin nombre'))];
   }
 
   Future<void> pedir(Amigo a) async {

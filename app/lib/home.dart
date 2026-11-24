@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'data.dart';
+import 'idioma.dart';
 import 'installer.dart';
 import 'logros_juego.dart';
 import 'play.dart';
@@ -275,8 +276,8 @@ class _TopNavState extends State<_TopNav> {
     );
     return Row(
       children: [
-        link('Biblioteca', widget.onLibrary),
-        link('Buscar', widget.onSearch),
+        link(t('Biblioteca'), widget.onLibrary),
+        link(t('Buscar'), widget.onSearch),
         const SizedBox(width: 12),
         Text('${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}', style: T.label(size: 12, color: C.ink2)),
       ],
@@ -461,9 +462,9 @@ class _GameScreen extends StatelessWidget {
             bottom: compact ? 18 : 52,
             child: Row(
               children: [
-                GlassButton(icon: Icons.chevron_left_rounded, onTap: onPrev, tooltip: 'Anterior', size: compact ? 42 : 52),
+                GlassButton(icon: Icons.chevron_left_rounded, onTap: onPrev, tooltip: t('Anterior'), size: compact ? 42 : 52),
                 SizedBox(width: compact ? 10 : 14),
-                GlassButton(icon: Icons.chevron_right_rounded, onTap: onNext, tooltip: 'Siguiente', size: compact ? 42 : 52),
+                GlassButton(icon: Icons.chevron_right_rounded, onTap: onNext, tooltip: t('Siguiente'), size: compact ? 42 : 52),
                 if (MediaQuery.sizeOf(context).width > 980) ...[const SizedBox(width: 18), _Strip(juegos: juegos, index: index, onPick: onPick)],
                 const SizedBox(width: 14),
                 Text('${(index + 1).toString().padLeft(2, '0')} / ${juegos.length.toString().padLeft(2, '0')}', style: T.label(size: 12, color: C.ink2)),
@@ -480,7 +481,7 @@ class _GameScreen extends StatelessWidget {
                 SizedBox(width: compact ? 12 : 20),
                 PlayButton(g: g, installer: installer, compact: compact, onTap: onPlay),
                 SizedBox(width: compact ? 8 : 12),
-                GlassButton(icon: Icons.more_horiz_rounded, onTap: () => showPlaySheet(context, g, installer), tooltip: 'Versiones', size: compact ? 42 : 52),
+                GlassButton(icon: Icons.more_horiz_rounded, onTap: () => showPlaySheet(context, g, installer), tooltip: t('Versiones'), size: compact ? 42 : 52),
               ],
             ),
           ),
@@ -495,7 +496,7 @@ class _GameScreen extends StatelessWidget {
                   style: TextButton.styleFrom(foregroundColor: C.ink3),
                   iconAlignment: IconAlignment.end,
                   icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
-                  label: Text('TUS LOGROS', style: T.label(size: 11, color: C.ink3)),
+                  label: Text(t('TUS LOGROS'), style: T.label(size: 11, color: C.ink3)),
                 ),
               ),
             ),
@@ -570,7 +571,7 @@ class _Info extends StatelessWidget {
             children: [
               const Icon(Icons.help_outline_rounded, size: 14, color: C.ink3),
               const SizedBox(width: 6),
-              Text('Nombre sin confirmar', style: T.sans(size: 12, color: C.ink3)),
+              Text(t('Nombre sin confirmar'), style: T.sans(size: 12, color: C.ink3)),
             ],
           ),
         ],
@@ -620,14 +621,14 @@ class _Strip extends StatelessWidget {
   }
 }
 
-String horas(int s) => s < 3600 ? '${(s / 60).floor()} min' : '${(s / 3600).toStringAsFixed(s < 36000 ? 1 : 0).replaceAll('.', ',')} h';
+String horas(int s) => s < 3600 ? '${(s / 60).floor()} min' : '${(s / 3600).toStringAsFixed(s < 36000 ? 1 : 0).replaceAll('.', idioma.ingles ? '.' : ',')} h';
 
 String cuando(DateTime? d) {
-  if (d == null) return 'Nunca';
+  if (d == null) return t('Nunca');
   final days = DateTime.now().difference(d).inDays;
-  if (days == 0) return 'Hoy';
-  if (days == 1) return 'Ayer';
-  if (days < 7) return 'Hace $days días';
+  if (days == 0) return t('Hoy');
+  if (days == 1) return t('Ayer');
+  if (days < 7) return t('Hace {0} días', [days]);
   return '${d.day}/${d.month}/${d.year}';
 }
 
@@ -658,9 +659,9 @@ class _Mini extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Row(
           children: [
-            stat(segundos == 0 ? '0 h' : horas(segundos), 'Jugado'),
+            stat(segundos == 0 ? '0 h' : horas(segundos), t('Jugado')),
             SizedBox(width: compact ? 16 : 26),
-            stat(logros > 0 ? '0/$logros' : '—', 'Logros'),
+            stat(logros > 0 ? '0/$logros' : '—', t('Logros')),
           ],
         ),
       ),
@@ -706,7 +707,7 @@ class _RecordScreen extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(side + inset, compact ? 28 : 48, side, 56),
               sliver: SliverList.list(
                 children: [
-                  const SectionTitle('Tu partida'),
+                  SectionTitle(t('Tu partida')),
                   _Stats(
                     compact: compact,
                     segundos: installer.segundos(g),
@@ -714,12 +715,12 @@ class _RecordScreen extends StatelessWidget {
                     totalLogros: g.logros.isEmpty ? 0 : g.logros.first.total,
                   ),
                   SizedBox(height: compact ? 36 : 56),
-                  const SectionTitle('Logros'),
+                  SectionTitle(t('Logros')),
                   LogrosDelJuego(g, key: ValueKey('logros-${g.id}')),
                   SizedBox(height: compact ? 36 : 56),
                   SectionTitle(
-                    'Proyectos',
-                    italic: 'en GitHub',
+                    t('Proyectos'),
+                    italic: t('en GitHub'),
                     trailing: Text('${g.repos.length} ${g.repos.length == 1 ? 'versión' : 'versiones'}', style: T.sans(size: 14, color: C.ink2)),
                   ),
                   LayoutBuilder(
@@ -735,17 +736,17 @@ class _RecordScreen extends StatelessWidget {
                   ),
                   if (g.notas.isNotEmpty || g.dudoso) ...[
                     SizedBox(height: compact ? 36 : 56),
-                    const SectionTitle('Sobre el nombre'),
+                    SectionTitle(t('Sobre el nombre')),
                     Panel(
                       child: Text(
-                        [if (g.dudoso) 'El nombre de este juego es una deducción y puede no ser correcto.', ...g.notas].join('\n'),
+                        [if (g.dudoso) t('El nombre de este juego es una deducción y puede no ser correcto.'), ...g.notas].join('\n'),
                         style: T.sans(size: 14, color: C.ink2, height: 1.6),
                       ),
                     ),
                   ],
                   const SizedBox(height: 56),
                   Center(
-                    child: Text('Hangar · Arte de SteamGridDB · Código de cada proyecto en GitHub', style: T.sans(size: 12, color: C.ink3)),
+                    child: Text(t('Hangar · Arte de SteamGridDB · Código de cada proyecto en GitHub'), style: T.sans(size: 12, color: C.ink3)),
                   ),
                 ],
               ),
@@ -781,7 +782,7 @@ class _Header extends SliverPersistentHeaderDelegate {
         padding: EdgeInsets.fromLTRB(side, 0, compact ? 24 : 380, 0),
         child: Row(
           children: [
-            GlassButton(icon: Icons.keyboard_arrow_up_rounded, onTap: onUp, tooltip: 'Volver al juego', size: compact ? 38 : 46),
+            GlassButton(icon: Icons.keyboard_arrow_up_rounded, onTap: onUp, tooltip: t('Volver al juego'), size: compact ? 38 : 46),
             const SizedBox(width: 18),
             SizedBox(width: compact ? 30 : 42, height: compact ? 42 : 60, child: Cover(g, radius: 8, compact: true)),
             const SizedBox(width: 16),
@@ -849,12 +850,12 @@ class _Stats extends StatelessWidget {
         ],
       ),
     );
-    final t = segundos < 3600 ? ['${(segundos / 60).floor()}', 'min'] : [(segundos / 3600).toStringAsFixed(1).replaceAll('.', ','), 'h'];
+    final tj = segundos < 3600 ? ['${(segundos / 60).floor()}', 'min'] : [(segundos / 3600).toStringAsFixed(1).replaceAll('.', idioma.ingles ? '.' : ','), 'h'];
     final tiles = [
-      tile(t[0], t[1], 'Tiempo jugado'),
-      tile('0', totalLogros > 0 ? '/ $totalLogros' : '', 'Logros obtenidos'),
-      tile('0', '%', 'Completado', bar: 0),
-      tile(cuando(ultima), '', 'Última sesión'),
+      tile(tj[0], tj[1], t('Tiempo jugado')),
+      tile('0', totalLogros > 0 ? '/ $totalLogros' : '', t('Logros obtenidos')),
+      tile('0', '%', t('Completado'), bar: 0),
+      tile(cuando(ultima), '', t('Última sesión')),
     ];
     return Container(
       decoration: BoxDecoration(

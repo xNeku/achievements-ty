@@ -1,11 +1,12 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'cuenta.dart';
+import 'idioma.dart';
 import 'logros.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
-String _horas(int s) => s < 3600 ? '${(s / 60).floor()} min' : '${(s / 3600).toStringAsFixed(1).replaceAll('.', ',')} h';
+String _horas(int s) => s < 3600 ? '${(s / 60).floor()} min' : '${(s / 3600).toStringAsFixed(1).replaceAll('.', idioma.ingles ? '.' : ',')} h';
 
 /// Ventana para entrar o crear tu cuenta de Hangar.
 Future<void> abrirCuenta(BuildContext context, Cuenta cuenta, Perfil perfil) => showDialog(
@@ -82,9 +83,9 @@ class _CuentaDialogState extends State<_CuentaDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(_nueva ? 'Crear cuenta' : 'Entrar', style: T.serif(size: 36)),
+                Text(_nueva ? t('Crear cuenta') : t('Entrar'), style: T.serif(size: 36)),
                 const SizedBox(height: 6),
-                Text('Tu cuenta guarda tus horas y logros, y te deja añadir amigos.', style: T.sans(size: 13, color: C.ink2)),
+                Text(t('Tu cuenta guarda tus horas y logros, y te deja añadir amigos.'), style: T.sans(size: 13, color: C.ink2)),
                 const SizedBox(height: 20),
                 if (!c.configurado || _servidor.text.isNotEmpty && _servidor.text != c.servidor || servidorPorDefecto.isEmpty) ...[
                   TextField(
@@ -96,16 +97,16 @@ class _CuentaDialogState extends State<_CuentaDialog> {
                   const SizedBox(height: 10),
                 ],
                 if (_nueva) ...[
-                  TextField(controller: _nombre, style: T.sans(size: 14), decoration: _dec('Tu nombre (lo verán tus amigos)')),
+                  TextField(controller: _nombre, style: T.sans(size: 14), decoration: _dec(t('Tu nombre (lo verán tus amigos)'))),
                   const SizedBox(height: 10),
                 ],
-                TextField(controller: _email, style: T.sans(size: 14), keyboardType: TextInputType.emailAddress, decoration: _dec('Correo')),
+                TextField(controller: _email, style: T.sans(size: 14), keyboardType: TextInputType.emailAddress, decoration: _dec(t('Correo'))),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _pass,
                   style: T.sans(size: 14),
                   obscureText: true,
-                  decoration: _dec(_nueva ? 'Contraseña (8 caracteres o más)' : 'Contraseña'),
+                  decoration: _dec(_nueva ? t('Contraseña (8 caracteres o más)') : t('Contraseña')),
                   onSubmitted: (_) => _ok(),
                 ),
                 if (c.error != null) ...[const SizedBox(height: 12), Text(c.error!, style: T.sans(size: 13, color: const Color(0xFFFF8A80)))],
@@ -114,12 +115,12 @@ class _CuentaDialogState extends State<_CuentaDialog> {
                   children: [
                     TextButton(
                       onPressed: () => setState(() => _nueva = !_nueva),
-                      child: Text(_nueva ? 'Ya tengo cuenta' : 'Crear una cuenta', style: T.sans(size: 13, color: C.ink2)),
+                      child: Text(_nueva ? t('Ya tengo cuenta') : t('Crear una cuenta'), style: T.sans(size: 13, color: C.ink2)),
                     ),
                     const Spacer(),
                     c.ocupado
                         ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: C.acc))
-                        : PlayPill(onTap: _ok, label: _nueva ? 'Crear' : 'Entrar', icon: Icons.arrow_forward_rounded, compact: true),
+                        : PlayPill(onTap: _ok, label: _nueva ? t('Crear') : t('Entrar'), icon: Icons.arrow_forward_rounded, compact: true),
                   ],
                 ),
               ],
@@ -176,12 +177,12 @@ class _AmigosScreenState extends State<AmigosScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
-                    child: Text('Amigos', style: T.serif(size: compact ? 40 : 56)),
+                    child: Text(t('Amigos'), style: T.serif(size: compact ? 40 : 56)),
                   ),
                   if (c.dentro)
                     IconButton(
                       onPressed: c.ocupado ? null : c.cargarAmigos,
-                      tooltip: 'Actualizar',
+                      tooltip: t('Actualizar'),
                       icon: const Icon(Icons.refresh_rounded, color: C.ink2),
                     ),
                 ],
@@ -189,8 +190,8 @@ class _AmigosScreenState extends State<AmigosScreen> {
               const SizedBox(height: 8),
               Text(
                 c.dentro
-                    ? '${c.amigos.length} amigos · conectado como ${c.nombre?.isNotEmpty == true ? c.nombre : c.email}'
-                    : 'Busca a tus amigos, mira a qué juegan y compara logros.',
+                    ? t('{0} amigos · conectado como {1}', [c.amigos.length, c.nombre?.isNotEmpty == true ? c.nombre : c.email])
+                    : t('Busca a tus amigos, mira a qué juegan y compara logros.'),
                 style: T.sans(size: 15, color: C.ink2),
               ),
               SizedBox(height: compact ? 22 : 34),
@@ -214,12 +215,12 @@ class _AmigosScreenState extends State<AmigosScreen> {
           const SizedBox(width: 20),
           Expanded(
             child: Text(
-              'Para tener amigos necesitas una cuenta de Hangar. Tus horas y tus logros se guardan en ella y se ven desde cualquier dispositivo.',
+              t('Para tener amigos necesitas una cuenta de Hangar. Tus horas y tus logros se guardan en ella y se ven desde cualquier dispositivo.'),
               style: T.sans(size: 15, color: C.ink2, height: 1.5),
             ),
           ),
           const SizedBox(width: 16),
-          PlayPill(onTap: () => abrirCuenta(context, c, widget.perfil), label: 'Entrar', icon: Icons.person_rounded, compact: true),
+          PlayPill(onTap: () => abrirCuenta(context, c, widget.perfil), label: t('Entrar'), icon: Icons.person_rounded, compact: true),
         ],
       ),
     ),
@@ -234,7 +235,7 @@ class _AmigosScreenState extends State<AmigosScreen> {
       decoration: InputDecoration(
         filled: true,
         fillColor: const Color(0x0FFFFFFF),
-        hintText: 'Buscar por nombre',
+        hintText: t('Buscar por nombre'),
         hintStyle: T.sans(size: 14, color: C.ink3),
         prefixIcon: const Icon(Icons.person_search_outlined, color: C.ink2),
         suffixIcon: _buscando
@@ -245,7 +246,7 @@ class _AmigosScreenState extends State<AmigosScreen> {
             : IconButton(
                 icon: const Icon(Icons.arrow_forward_rounded, color: C.ink2),
                 onPressed: _buscar,
-                tooltip: 'Buscar',
+                tooltip: t('Buscar'),
               ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -306,27 +307,27 @@ class _AmigosScreenState extends State<AmigosScreen> {
           child: Text(c.error!, style: T.sans(size: 13, color: const Color(0xFFFF8A80))),
         ),
       if (_resultados.isNotEmpty) ...[
-        titulo('RESULTADOS'),
+        titulo(t('RESULTADOS')),
         for (final a in _resultados)
           fila(
             a,
-            acciones: [yaRelacion.contains(a.id) ? Text('YA ESTÁ', style: T.label(size: 11)) : boton('AÑADIR', () => c.pedir(a), color: C.pink)],
+            acciones: [yaRelacion.contains(a.id) ? Text(t('YA ESTÁ'), style: T.label(size: 11)) : boton(t('AÑADIR'), () => c.pedir(a), color: C.pink)],
           ),
       ],
       if (c.pendientesParaMi.isNotEmpty) ...[
-        titulo('TE QUIEREN AÑADIR'),
+        titulo(t('TE QUIEREN AÑADIR')),
         for (final a in c.pendientesParaMi)
           fila(
             a.otro,
             acciones: [
-              boton('RECHAZAR', () => c.quitar(a), color: C.ink3),
-              boton('ACEPTAR', () => c.aceptar(a), color: C.ok),
+              boton(t('RECHAZAR'), () => c.quitar(a), color: C.ink3),
+              boton(t('ACEPTAR'), () => c.aceptar(a), color: C.ok),
             ],
           ),
       ],
-      titulo('TUS AMIGOS'),
+      titulo(t('TUS AMIGOS')),
       if (c.amigos.isEmpty)
-        Text('Todavía no tienes amigos en Hangar. Búscalos por su nombre.', style: T.sans(size: 14, color: C.ink2))
+        Text(t('Todavía no tienes amigos en Hangar. Búscalos por su nombre.'), style: T.sans(size: 14, color: C.ink2))
       else
         for (final a in c.amigos)
           () {
@@ -335,17 +336,17 @@ class _AmigosScreenState extends State<AmigosScreen> {
             return fila(
               a.otro,
               online: ult?.ultima != null && DateTime.now().difference(ult!.ultima!).inMinutes < 30,
-              texto: ult == null ? 'Aún no ha jugado con Hangar' : 'Jugó a ${ult.nombre} · ${_horas(ult.segundos)} en total',
-              acciones: [boton('QUITAR', () => c.quitar(a), color: C.ink3)],
+              texto: ult == null ? t('Aún no ha jugado con Hangar') : t('Jugó a {0} · {1} en total', [ult.nombre, _horas(ult.segundos)]),
+              acciones: [boton(t('QUITAR'), () => c.quitar(a), color: C.ink3)],
             );
           }(),
       if (c.pendientesMias.isNotEmpty) ...[
-        titulo('ESPERANDO RESPUESTA'),
+        titulo(t('ESPERANDO RESPUESTA')),
         for (final a in c.pendientesMias)
           fila(
             a.otro,
-            texto: 'Solicitud enviada',
-            acciones: [boton('CANCELAR', () => c.quitar(a), color: C.ink3)],
+            texto: t('Solicitud enviada'),
+            acciones: [boton(t('CANCELAR'), () => c.quitar(a), color: C.ink3)],
           ),
       ],
     ];

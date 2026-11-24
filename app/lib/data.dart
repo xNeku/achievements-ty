@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'idioma.dart';
+
 /// El catálogo vive en el repo, uno por sistema. La app usa la última copia descargada y,
 /// si no hay, la que viene dentro de la app.
 /// Primero el de `main`; si aún no está, el de la última build publicada.
@@ -25,7 +27,7 @@ const fuenteLabel = {
   'hangar': 'Hangar',
 };
 
-const tipoLabel = {'recomp': 'Recomp', 'decomp': 'Decomp', 'source-port': 'Source port', 'emulator': 'Emulador'};
+Map<String, String> get tipoLabel => {'recomp': 'Recomp', 'decomp': 'Decomp', 'source-port': 'Source port', 'emulator': t('Emulador')};
 
 /// Cómo se instala y arranca un port en el Mac (sale del catálogo de RecompLauncher).
 class MacInfo {
@@ -104,8 +106,11 @@ class Repo {
   final AndroidInfo? android;
   final List<String> requisitos;
   final bool archivado;
+
+  /// Lo publica su propio autor (tiene hangar.json o lo envió el dueño del repo).
+  final bool autor;
   final String? estado;
-  const Repo(this.repo, this.url, this.tipo, {this.mac, this.android, this.requisitos = const [], this.archivado = false, this.estado});
+  const Repo(this.repo, this.url, this.tipo, {this.mac, this.android, this.requisitos = const [], this.archivado = false, this.autor = false, this.estado});
   String get owner => repo.split('/').first;
   String get name => repo.split('/').last;
 
@@ -212,6 +217,7 @@ class Juego {
               android: r['android'] is Map<String, dynamic> ? AndroidInfo.fromJson(r['android']) : null,
               requisitos: strs(r['requisitos']),
               archivado: r['archivado'] == true,
+              autor: r['autor'] == true,
               estado: r['estado'],
             ),
           )
@@ -276,7 +282,7 @@ class CatalogStore extends ChangeNotifier {
   /// `juegos.json` (Android) o `juegos-mac.json` (Mac).
   final String file;
   CatalogStore(this.file);
-  Catalogo catalogo = const Catalogo([], 'vacío', null);
+  Catalogo catalogo = Catalogo([], t('vacío'), null);
   bool cargando = false;
   String? error;
 
@@ -327,12 +333,12 @@ class CatalogStore extends ChangeNotifier {
           }
         } catch (_) {}
       }
-      if (body == null) throw 'sin conexión con GitHub';
+      if (body == null) throw t('sin conexión con GitHub');
       // No cambiamos a un catálogo más viejo que el que ya tenemos.
       if (version(body).compareTo(_version) < 0) return;
       _version = version(body);
       final juegos = Catalogo.parse(body);
-      if (juegos.isEmpty) throw 'catálogo vacío';
+      if (juegos.isEmpty) throw t('catálogo vacío');
       final now = DateTime.now();
       catalogo = Catalogo(juegos, 'GitHub', now);
       final prefs = await SharedPreferences.getInstance();

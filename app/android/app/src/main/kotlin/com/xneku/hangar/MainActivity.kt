@@ -63,9 +63,26 @@ class MainActivity : FlutterActivity() {
                     }
                     "hasUsage" -> result.success(tieneUso())
                     "askUsage" -> {
-                        startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        // Directo al interruptor de Hangar (Android 10+); si el sistema no lo admite, la lista general.
+                        try {
+                            startActivity(
+                                Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:$packageName"))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        } catch (e: Exception) {
+                            startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        }
                         result.success(true)
                     }
+                    "appInfo" -> {
+                        // Info de la app: desde su menú ⋮ se permiten los «ajustes restringidos» en Android 13+.
+                        startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                        result.success(true)
+                    }
+                    "sdk" -> result.success(Build.VERSION.SDK_INT)
                     "usage" -> {
                         // Tiempo en primer plano de cada port desde hace dos años (lo que guarde el sistema).
                         @Suppress("UNCHECKED_CAST")
@@ -95,6 +112,10 @@ class MainActivity : FlutterActivity() {
         } else {
             @Suppress("DEPRECATION")
             ops.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), packageName)
+        }
+        // Algunos fabricantes dejan el modo «por defecto» y lo deciden por el permiso normal.
+        if (mode == AppOpsManager.MODE_DEFAULT) {
+            return checkCallingOrSelfPermission(android.Manifest.permission.PACKAGE_USAGE_STATS) == android.content.pm.PackageManager.PERMISSION_GRANTED
         }
         return mode == AppOpsManager.MODE_ALLOWED
     }

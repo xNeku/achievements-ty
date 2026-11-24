@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'data.dart';
+import 'idioma.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -112,7 +113,7 @@ class _LogrosDelJuegoState extends State<LogrosDelJuego> {
               const SizedBox(width: 20),
               Expanded(
                 child: Text(
-                  'Todavía no tenemos la lista de logros de este juego. La base de datos de Hangar crece cada semana.',
+                  t('Todavía no tenemos la lista de logros de este juego. La base de datos de Hangar crece cada semana.'),
                   style: T.sans(size: 15, color: C.ink2, height: 1.5),
                 ),
               ),
@@ -128,7 +129,7 @@ class _LogrosDelJuegoState extends State<LogrosDelJuego> {
           Row(
             children: [
               Expanded(
-                child: Text('${s.total} logros · ${s.puntos} $unidad · lista de ${fuenteLabel[s.fuente] ?? s.fuente}', style: T.sans(size: 14, color: C.ink2)),
+                child: Text(t('{0} logros · {1} {2} · lista de {3}', [s.total, s.puntos, unidad, fuenteLabel[s.fuente] ?? s.fuente]), style: T.sans(size: 14, color: C.ink2)),
               ),
               if (sets.length > 1)
                 for (var i = 0; i < sets.length; i++)
@@ -147,7 +148,7 @@ class _LogrosDelJuegoState extends State<LogrosDelJuego> {
             ],
           ),
           const SizedBox(height: 8),
-          Text('Se desbloquearán cuando el port avise a Hangar. Por ahora puedes ver qué te espera.', style: T.sans(size: 12, color: C.ink3)),
+          Text(t('Se desbloquearán cuando el port avise a Hangar. Por ahora puedes ver qué te espera.'), style: T.sans(size: 12, color: C.ink3)),
           const SizedBox(height: 16),
           LayoutBuilder(
             builder: (context, box) {
@@ -178,7 +179,7 @@ class _LogrosDelJuegoState extends State<LogrosDelJuego> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    l.secreto && l.descripcion.isEmpty ? 'Logro secreto' : l.descripcion,
+                                    l.secreto && l.descripcion.isEmpty ? t('Logro secreto') : l.descripcion,
                                     maxLines: 3,
                                     overflow: TextOverflow.ellipsis,
                                     style: T.sans(size: 12.5, color: C.ink2, height: 1.35),

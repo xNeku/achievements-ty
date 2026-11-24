@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'comunidad.dart';
+import 'idioma.dart';
 import 'data.dart';
 import 'imagenes.dart';
 import 'installer.dart';
@@ -29,7 +30,7 @@ Future<void> playAction(BuildContext context, Juego g, Installer ins) async {
         content: Text(err, style: T.sans(size: 14)),
         backgroundColor: C.panel,
         behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(label: 'VER', textColor: C.pink, onPressed: () => showPlaySheet(context, g, ins)),
+        action: SnackBarAction(label: t('VER'), textColor: C.pink, onPressed: () => showPlaySheet(context, g, ins)),
       ),
     );
   }
@@ -49,16 +50,16 @@ class PlayButton extends StatelessWidget {
     final f = r == null ? Fase.nada : installer.fase(r);
     final p = r == null ? 0.0 : installer.progreso(r);
     final (label, icon) = switch (f) {
-      Fase.descargando => ('Descargando ${(p * 100).round()} %', Icons.downloading_rounded),
-      Fase.preparando => ('Preparando', Icons.hourglass_top_rounded),
-      Fase.jugando => ('Jugando', Icons.sports_esports_rounded),
-      Fase.listo => ('Jugar', Icons.play_arrow_rounded),
+      Fase.descargando => (t('Descargando {0} %', [(p * 100).round()]), Icons.downloading_rounded),
+      Fase.preparando => (t('Preparando'), Icons.hourglass_top_rounded),
+      Fase.jugando => (t('Jugando'), Icons.sports_esports_rounded),
+      Fase.listo => (t('Jugar'), Icons.play_arrow_rounded),
       Fase.nada =>
         !installer.soportado
-            ? ('Descargar', Icons.download_rounded)
+            ? (t('Descargar'), Icons.download_rounded)
             : (installer.esMac || (r?.listo ?? false))
-            ? ('Instalar', Icons.download_rounded)
-            : ('Versiones', Icons.list_rounded),
+            ? (t('Instalar'), Icons.download_rounded)
+            : (t('Versiones'), Icons.list_rounded),
     };
     return Stack(
       children: [
@@ -88,7 +89,7 @@ class PlayButton extends StatelessWidget {
 Future<void> showPlaySheet(BuildContext context, Juego g, Installer ins) => showGeneralDialog(
   context: context,
   barrierDismissible: true,
-  barrierLabel: 'Cerrar',
+  barrierLabel: t('Cerrar'),
   barrierColor: const Color(0x99000000),
   transitionDuration: const Duration(milliseconds: 380),
   pageBuilder: (context, _, _) => Align(
@@ -107,39 +108,39 @@ Future<void> showPlaySheet(BuildContext context, Juego g, Installer ins) => show
               children: [
                 Row(
                   children: [
-                    Expanded(child: Text(g.repos.length > 1 ? 'Elige versión' : 'Instalar y jugar', style: T.serif(size: 38))),
+                    Expanded(child: Text(g.repos.length > 1 ? t('Elige versión') : t('Instalar y jugar'), style: T.serif(size: 38))),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.close_rounded, color: C.ink2),
-                      tooltip: 'Cerrar',
+                      tooltip: t('Cerrar'),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
                   !ins.soportado
-                      ? 'Desde aquí se abre la página de descargas del port en GitHub.'
+                      ? t('Desde aquí se abre la página de descargas del port en GitHub.')
                       : ins.esMac
-                      ? 'Necesitas tu propia copia del juego. Hangar descarga el port de GitHub, lo prepara y lo abre.'
-                      : 'Necesitas tu propia copia del juego (la ROM o el disco, en tu tablet). Hangar instala el port y lo abre; la primera vez el juego te pedirá elegir ese archivo.',
+                      ? t('Necesitas tu propia copia del juego. Hangar descarga el port de GitHub, lo prepara y lo abre.')
+                      : t('Necesitas tu propia copia del juego (la ROM o el disco, en tu tablet). Hangar instala el port y lo abre; la primera vez el juego te pedirá elegir ese archivo.'),
                   style: T.sans(size: 14, color: C.ink2, height: 1.5),
                 ),
                 const SizedBox(height: 24),
                 for (final r in g.repos) ...[_RepoRow(r: r, ins: ins), const SizedBox(height: 14)],
                 const SizedBox(height: 10),
-                Text('¿ALGO NO VA BIEN?', style: T.label(size: 11, color: C.ink3)),
+                Text(t('¿ALGO NO VA BIEN?'), style: T.label(size: 11, color: C.ink3)),
                 const SizedBox(height: 6),
                 Wrap(spacing: 4, runSpacing: 4, children: [
                   if (ins.principal(g) case final r?)
                     TextButton.icon(
                       onPressed: () => informarFallo(r),
                       icon: const Icon(Icons.bug_report_outlined, size: 16, color: C.ink2),
-                      label: Text('INFORMAR DE UN FALLO', style: T.label(size: 11, color: C.ink2, w: FontWeight.w600)),
+                      label: Text(t('INFORMAR DE UN FALLO'), style: T.label(size: 11, color: C.ink2, w: FontWeight.w600)),
                     ),
                   TextButton.icon(
                     onPressed: () => elegirImagenes(context, g),
                     icon: const Icon(Icons.image_outlined, size: 16, color: C.ink2),
-                    label: Text('CAMBIAR IMÁGENES', style: T.label(size: 11, color: C.ink2, w: FontWeight.w600)),
+                    label: Text(t('CAMBIAR IMÁGENES'), style: T.label(size: 11, color: C.ink2, w: FontWeight.w600)),
                   ),
                 ]),
               ],
@@ -187,7 +188,7 @@ class _RepoRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(f == Fase.preparando ? 'Preparando…' : 'Descargando ${(ins.progreso(r) * 100).round()} %', style: T.label(size: 11, color: C.ink)),
+              Text(f == Fase.preparando ? t('Preparando…') : t('Descargando {0} %', [(ins.progreso(r) * 100).round()]), style: T.label(size: 11, color: C.ink)),
               const SizedBox(height: 8),
               ClipRRect(
                 borderRadius: BorderRadius.circular(2),
@@ -203,7 +204,7 @@ class _RepoRow extends StatelessWidget {
         );
       case Fase.jugando:
         primary = Text(
-          'JUGANDO',
+          t('JUGANDO'),
           style: T.label(size: 12, color: C.ok, w: FontWeight.w600),
         );
       case Fase.listo:
@@ -217,7 +218,7 @@ class _RepoRow extends StatelessWidget {
                     onPressed: () => ins.instalar(r),
                     icon: const Icon(Icons.system_update_alt_rounded, size: 16, color: C.ok),
                     label: Text(
-                      'ACTUALIZAR A ${r.version}',
+                      t('ACTUALIZAR A {0}', [r.version]),
                       style: T.label(size: 10, color: C.ok, w: FontWeight.w600),
                     ),
                   ),
@@ -226,11 +227,11 @@ class _RepoRow extends StatelessWidget {
             : PlayPill(onTap: () => ins.jugar(r), compact: true);
       case Fase.nada:
         primary = ins.instalable(r) && (ins.esMac || r.listo)
-            ? PlayPill(onTap: () => ins.instalar(r), label: 'Instalar', icon: Icons.download_rounded, compact: true)
+            ? PlayPill(onTap: () => ins.instalar(r), label: t('Instalar'), icon: Icons.download_rounded, compact: true)
             : TextButton(
                 onPressed: () => launchUrl(Uri.parse('${r.url}/releases'), mode: LaunchMode.externalApplication),
                 child: Text(
-                  'VER EN GITHUB',
+                  t('VER EN GITHUB'),
                   style: T.label(size: 12, color: C.ink, w: FontWeight.w600),
                 ),
               );
@@ -247,7 +248,26 @@ class _RepoRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(r.name, style: T.sans(size: 16, w: FontWeight.w600)),
+                    Row(
+                      children: [
+                        Flexible(child: Text(r.name, overflow: TextOverflow.ellipsis, style: T.sans(size: 16, w: FontWeight.w600))),
+                        if (r.autor) ...[
+                          const SizedBox(width: 8),
+                          Tooltip(
+                            message: t('Lo publica su propio autor en Hangar'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(color: const Color(0x2244D27A), borderRadius: BorderRadius.circular(6)),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                const Icon(Icons.verified_rounded, size: 12, color: C.ok),
+                                const SizedBox(width: 4),
+                                Text(t('DEL AUTOR'), style: T.label(size: 9, color: C.ok, w: FontWeight.w700)),
+                              ]),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                     const SizedBox(height: 2),
                     Text(meta, style: T.sans(size: 13, color: C.ink2)),
                   ],
@@ -257,16 +277,19 @@ class _RepoRow extends StatelessWidget {
               primary,
             ],
           ),
-          if (r.aviso != null) small('Este proyecto está ${r.aviso}: puede que no reciba más arreglos.', color: const Color(0xFFE9B949)),
+          if (r.archivado)
+            small(t('Este proyecto está archivado: puede que no reciba más arreglos.'), color: const Color(0xFFE9B949))
+          else if (r.estado != null)
+            small(r.estado!, color: const Color(0xFFE9B949)),
           if (!ins.esMac && !r.listo && ins.esAndroid)
-            small('No publica un APK en GitHub, así que no se puede instalar desde aquí. Mira su página por si hay que compilarlo.'),
+            small(t('No publica un APK en GitHub, así que no se puede instalar desde aquí. Mira su página por si hay que compilarlo.')),
           if (err != null) small(err, color: const Color(0xFFFF8A80)),
           if (ins.avisoCopia[r.repo] != null) small(ins.avisoCopia[r.repo]!, color: const Color(0xFFE9B949)),
           if (m?.aviso != null) small(m!.aviso!) else if (m?.necesita != null) small(m!.necesita!),
           if (r.requisitos.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
-              'LO QUE PIDE PARA JUGAR',
+              t('LO QUE PIDE PARA JUGAR'),
               style: T.label(size: 10, color: C.ink3, w: FontWeight.w600),
             ),
             for (final q in r.requisitos) small('· $q'),
@@ -280,7 +303,7 @@ class _RepoRow extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      rec.copia == null ? (m.juegoTexto ?? 'Elige tu copia del juego') : 'Tu copia: ${rec.copia!.split('/').last}',
+                      rec.copia == null ? (m.juegoTexto ?? t('Elige tu copia del juego')) : t('Tu copia: {0}', [rec.copia!.split('/').last]),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: T.sans(size: 13, color: C.ink2),
@@ -288,7 +311,7 @@ class _RepoRow extends StatelessWidget {
                   ),
                   TextButton(
                     onPressed: () => ins.elegirCopia(r),
-                    child: Text(rec.copia == null ? 'ELEGIR' : 'CAMBIAR', style: T.label(size: 11, color: C.ink)),
+                    child: Text(rec.copia == null ? t('ELEGIR') : t('CAMBIAR'), style: T.label(size: 11, color: C.ink)),
                   ),
                 ],
               ),
@@ -296,7 +319,7 @@ class _RepoRow extends StatelessWidget {
           if (m != null && m.pasos.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(
-              'ESTE PORT SE PREPARA A MANO',
+              t('ESTE PORT SE PREPARA A MANO'),
               style: T.label(size: 10, color: C.acc, w: FontWeight.w600),
             ),
             for (var i = 0; i < m.pasos.length; i++) small('${i + 1}. ${m.pasos[i]}'),
@@ -306,15 +329,15 @@ class _RepoRow extends StatelessWidget {
             Row(
               children: [
                 if (ins.esMac)
-                  TextButton.icon(onPressed: () => ins.abrirCarpeta(r), icon: const Icon(Icons.folder_open_rounded, size: 16), label: const Text('Carpeta')),
+                  TextButton.icon(onPressed: () => ins.abrirCarpeta(r), icon: const Icon(Icons.folder_open_rounded, size: 16), label: Text(t('Carpeta'))),
                 TextButton.icon(
                   onPressed: () => ins.desinstalar(r),
                   icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                  label: const Text('Desinstalar'),
+                  label: Text(t('Desinstalar')),
                 ),
                 const Spacer(),
                 if (rec.segundos > 0)
-                  Text('${(rec.segundos / 3600).toStringAsFixed(1).replaceAll('.', ',')} h jugadas', style: T.sans(size: 12, color: C.ink3)),
+                  Text(t('{0} h jugadas', [(rec.segundos / 3600).toStringAsFixed(1).replaceAll('.', idioma.ingles ? '.' : ',')]), style: T.sans(size: 12, color: C.ink3)),
               ],
             ),
           ],

@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'data.dart';
+import 'idioma.dart';
 import 'theme.dart';
 
 /// Imagen de red con fundido de entrada y sin parpadeos al fallar.
@@ -127,10 +128,10 @@ class GlassButton extends StatelessWidget {
 /// Píldora blanca/cristal "JUGAR".
 class PlayPill extends StatelessWidget {
   final VoidCallback onTap;
-  final String label;
+  final String? label;
   final IconData icon;
   final bool compact;
-  const PlayPill({super.key, required this.onTap, this.label = 'Jugar', this.icon = Icons.play_arrow_rounded, this.compact = false});
+  const PlayPill({super.key, required this.onTap, this.label, this.icon = Icons.play_arrow_rounded, this.compact = false});
 
   @override
   Widget build(BuildContext context) => Material(
@@ -152,7 +153,7 @@ class PlayPill extends StatelessWidget {
             ),
             SizedBox(width: compact ? 10 : 14),
             Text(
-              label.toUpperCase(),
+              (label ?? t('Jugar')).toUpperCase(),
               style: T.label(size: compact ? 12 : 14, color: C.ink, w: FontWeight.w600),
             ),
           ],
@@ -358,4 +359,52 @@ class Panel extends StatelessWidget {
       child: Padding(padding: padding, child: child),
     ),
   );
+}
+
+/// Bandera del idioma: 'es' (España) o 'en' (Reino Unido), dibujada a mano para que se vea en cualquier sistema.
+class Bandera extends StatelessWidget {
+  final String codigo;
+  final double ancho;
+  const Bandera(this.codigo, {super.key, this.ancho = 30});
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(4),
+    child: CustomPaint(size: Size(ancho, ancho * 2 / 3), painter: _BanderaPainter(codigo)),
+  );
+}
+
+class _BanderaPainter extends CustomPainter {
+  final String codigo;
+  _BanderaPainter(this.codigo);
+
+  @override
+  void paint(Canvas c, Size s) {
+    final w = s.width, h = s.height;
+    final p = Paint();
+    if (codigo == 'es') {
+      c.drawRect(Offset.zero & s, p..color = const Color(0xFFC60B1E));
+      c.drawRect(Rect.fromLTWH(0, h / 4, w, h / 2), p..color = const Color(0xFFFFC400));
+      return;
+    }
+    // Union Jack simplificada
+    c.drawRect(Offset.zero & s, p..color = const Color(0xFF012169));
+    final diag = Paint()
+      ..strokeWidth = h * .2
+      ..color = Colors.white;
+    c.drawLine(Offset.zero, Offset(w, h), diag);
+    c.drawLine(Offset(w, 0), Offset(0, h), diag);
+    diag
+      ..strokeWidth = h * .07
+      ..color = const Color(0xFFC8102E);
+    c.drawLine(Offset.zero, Offset(w, h), diag);
+    c.drawLine(Offset(w, 0), Offset(0, h), diag);
+    c.drawRect(Rect.fromCenter(center: Offset(w / 2, h / 2), width: w, height: h * .34), p..color = Colors.white);
+    c.drawRect(Rect.fromCenter(center: Offset(w / 2, h / 2), width: h * .34, height: h), p);
+    p.color = const Color(0xFFC8102E);
+    c.drawRect(Rect.fromCenter(center: Offset(w / 2, h / 2), width: w, height: h * .2), p);
+    c.drawRect(Rect.fromCenter(center: Offset(w / 2, h / 2), width: h * .2, height: h), p);
+  }
+
+  @override
+  bool shouldRepaint(_BanderaPainter old) => old.codigo != codigo;
 }

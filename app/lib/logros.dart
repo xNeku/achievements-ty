@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'installer.dart';
+import 'idioma.dart';
 
 /// Un logro de Hangar: se gana usando la app, en cualquier juego.
 class Hito {
@@ -19,19 +20,19 @@ class Hito {
 
 const _bronce = Color(0xFFB9886A), _plata = Color(0xFFB9B2B6), _oro = Color(0xFFE9B949), _brasa = Color(0xFFE8463B);
 
-final hitos = <Hito>[
-  Hito('despegue', 'Primer despegue', 'Instala tu primer port.', Icons.flight_takeoff_rounded, _bronce, 1, (i, _) => i.instalacionesTotales),
-  Hito('partida', 'Primera partida', 'Abre un juego desde Hangar.', Icons.play_arrow_rounded, _bronce, 1, (i, _) => i.sesionesTotales),
-  Hito('nombre', 'Con nombre propio', 'Ponle nombre a tu perfil.', Icons.badge_outlined, _bronce, 1, (_, p) => p.nombre.isEmpty ? 0 : 1),
-  Hito('explorador', 'Explorador', 'Abre 25 juegos del catálogo.', Icons.travel_explore_rounded, _bronce, 25, (_, p) => p.vistos.length),
-  Hito('hora', 'Calentando motores', 'Juega una hora en total.', Icons.local_fire_department_outlined, _plata, 3600, (i, _) => i.segundosTotales),
-  Hito('picoteo', 'Picoteo', 'Juega a tres juegos distintos.', Icons.grid_view_rounded, _plata, 3, (i, _) => i.juegosJugados),
-  Hito('constante', 'Constante', 'Abre juegos desde Hangar diez veces.', Icons.repeat_rounded, _plata, 10, (i, _) => i.sesionesTotales),
-  Hito('lleno', 'Hangar lleno', 'Ten cinco ports instalados a la vez.', Icons.warehouse_outlined, _plata, 5, (i, _) => i.instaladosAhora),
-  Hito('biblioteca', 'Rata de biblioteca', 'Abre 100 juegos del catálogo.', Icons.menu_book_rounded, _oro, 100, (_, p) => p.vistos.length),
-  Hito('veterano', 'Piloto veterano', 'Juega diez horas en total.', Icons.military_tech_outlined, _oro, 36000, (i, _) => i.segundosTotales),
-  Hito('coleccion', 'Coleccionista', 'Instala diez ports distintos.', Icons.collections_bookmark_outlined, _oro, 10, (i, _) => i.instalacionesTotales),
-  Hito('leyenda', 'Leyenda del hangar', 'Juega cincuenta horas en total.', Icons.workspace_premium_outlined, _brasa, 180000, (i, _) => i.segundosTotales),
+List<Hito> get hitos => <Hito>[
+  Hito('despegue', t('Primer despegue'), t('Instala tu primer port.'), Icons.flight_takeoff_rounded, _bronce, 1, (i, _) => i.instalacionesTotales),
+  Hito('partida', t('Primera partida'), t('Abre un juego desde Hangar.'), Icons.play_arrow_rounded, _bronce, 1, (i, _) => i.sesionesTotales),
+  Hito('nombre', t('Con nombre propio'), t('Ponle nombre a tu perfil.'), Icons.badge_outlined, _bronce, 1, (_, p) => p.nombre.isEmpty ? 0 : 1),
+  Hito('explorador', t('Explorador'), t('Abre 25 juegos del catálogo.'), Icons.travel_explore_rounded, _bronce, 25, (_, p) => p.vistos.length),
+  Hito('hora', t('Calentando motores'), t('Juega una hora en total.'), Icons.local_fire_department_outlined, _plata, 3600, (i, _) => i.segundosTotales),
+  Hito('picoteo', t('Picoteo'), t('Juega a tres juegos distintos.'), Icons.grid_view_rounded, _plata, 3, (i, _) => i.juegosJugados),
+  Hito('constante', t('Constante'), t('Abre juegos desde Hangar diez veces.'), Icons.repeat_rounded, _plata, 10, (i, _) => i.sesionesTotales),
+  Hito('lleno', t('Hangar lleno'), t('Ten cinco ports instalados a la vez.'), Icons.warehouse_outlined, _plata, 5, (i, _) => i.instaladosAhora),
+  Hito('biblioteca', t('Rata de biblioteca'), t('Abre 100 juegos del catálogo.'), Icons.menu_book_rounded, _oro, 100, (_, p) => p.vistos.length),
+  Hito('veterano', t('Piloto veterano'), t('Juega diez horas en total.'), Icons.military_tech_outlined, _oro, 36000, (i, _) => i.segundosTotales),
+  Hito('coleccion', t('Coleccionista'), t('Instala diez ports distintos.'), Icons.collections_bookmark_outlined, _oro, 10, (i, _) => i.instalacionesTotales),
+  Hito('leyenda', t('Leyenda del hangar'), t('Juega cincuenta horas en total.'), Icons.workspace_premium_outlined, _brasa, 180000, (i, _) => i.segundosTotales),
 ];
 
 /// Tu perfil local: nombre, juegos que has mirado y logros de Hangar ganados (con fecha).

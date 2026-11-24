@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'comunidad.dart';
+import 'idioma.dart';
 import 'data.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -110,24 +111,24 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       ),
                       const SizedBox(width: 12),
                       if (narrow)
-                        _menu('Colección', _col, const {
-                          'todos': 'Todos',
-                          'listos': 'Listos para jugar',
-                          'instalados': 'Instalados',
-                          'arte': 'Con portada',
-                          'recientes': 'Recientes',
+                        _menu(t('Colección'), _col, {
+                          'todos': t('Todos'),
+                          'listos': t('Listos para jugar'),
+                          'instalados': t('Instalados'),
+                          'arte': t('Con portada'),
+                          'recientes': t('Recientes'),
                         }, (v) => _col = v),
                       if (narrow) const SizedBox(width: 12),
-                      _menu('Tipo', _tipo ?? '', {'': 'Todos', ...tipoLabel}, (v) => _tipo = v.isEmpty ? null : v),
+                      _menu(t('Tipo'), _tipo ?? '', {'': t('Todos'), ...tipoLabel}, (v) => _tipo = v.isEmpty ? null : v),
                       const SizedBox(width: 12),
-                      _menu('Orden', _orden, const {'arte': 'Con portada primero', 'az': 'Nombre A–Z', 'za': 'Nombre Z–A'}, (v) => _orden = v),
+                      _menu(t('Orden'), _orden, {'arte': t('Con portada primero'), 'az': t('Nombre A–Z'), 'za': t('Nombre Z–A')}, (v) => _orden = v),
                       const SizedBox(width: 12),
                       Tooltip(
-                        message: '¿Falta un port? Propónlo',
+                        message: t('Publicar un port en Hangar'),
                         child: SizedBox.square(
                           dimension: 46,
                           child: IconButton.outlined(
-                            onPressed: () => proponerPort(nombre: _q.text.trim()),
+                            onPressed: () => publicarPort(nombre: _q.text.trim()),
                             style: IconButton.styleFrom(side: const BorderSide(color: C.line)),
                             icon: const Icon(Icons.add_rounded, color: C.ink2),
                           ),
@@ -269,9 +270,9 @@ class _Side extends StatelessWidget {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                head('Mis colecciones'),
+                head(t('Mis colecciones')),
                 item(
-                  'Todos los juegos',
+                  t('Todos los juegos'),
                   w.juegos.length,
                   state._col == 'todos' && state._tipo == null,
                   () => state._upd(() {
@@ -279,17 +280,17 @@ class _Side extends StatelessWidget {
                     state._tipo = null;
                   }),
                 ),
-                item('Listos para jugar', w.juegos.where((j) => j.listo).length, state._col == 'listos', () => state._upd(() => state._col = 'listos')),
+                item(t('Listos para jugar'), w.juegos.where((j) => j.listo).length, state._col == 'listos', () => state._upd(() => state._col = 'listos')),
                 item(
-                  'Instalados',
+                  t('Instalados'),
                   w.juegos.where((j) => j.repos.any((r) => w.instalados.contains(r.repo))).length,
                   state._col == 'instalados',
                   () => state._upd(() => state._col = 'instalados'),
                 ),
-                item('Con portada', w.juegos.where((j) => j.cover != null).length, state._col == 'arte', () => state._upd(() => state._col = 'arte')),
-                item('Destacados', w.destacados.length, state._col == 'destacados', () => state._upd(() => state._col = 'destacados')),
-                item('Recientes', w.recientes.length, state._col == 'recientes', () => state._upd(() => state._col = 'recientes')),
-                head('Tipo de proyecto'),
+                item(t('Con portada'), w.juegos.where((j) => j.cover != null).length, state._col == 'arte', () => state._upd(() => state._col = 'arte')),
+                item(t('Destacados'), w.destacados.length, state._col == 'destacados', () => state._upd(() => state._col = 'destacados')),
+                item(t('Recientes'), w.recientes.length, state._col == 'recientes', () => state._upd(() => state._col = 'recientes')),
+                head(t('Tipo de proyecto')),
                 for (final e in tipoLabel.entries)
                   if ((counts[e.key] ?? 0) > 0)
                     item(e.value, counts[e.key]!, state._tipo == e.key, () => state._upd(() => state._tipo = state._tipo == e.key ? null : e.key)),
@@ -303,7 +304,7 @@ class _Side extends StatelessWidget {
                   const SizedBox(height: 16),
                   const Avatar(size: 76, glow: C.pink),
                   const SizedBox(height: 10),
-                  Text('Tu perfil', style: T.sans(size: 14, w: FontWeight.w600)),
+                  Text(t('Tu perfil'), style: T.sans(size: 14, w: FontWeight.w600)),
                 ],
               ),
             ),
@@ -329,14 +330,14 @@ class _SearchField extends StatelessWidget {
       isDense: true,
       filled: true,
       fillColor: const Color(0x0FFFFFFF),
-      hintText: 'Busca entre $total juegos o repos',
+      hintText: t('Busca entre {0} juegos o repos', [total]),
       hintStyle: T.sans(size: 14, color: C.ink3),
       prefixIcon: const Icon(Icons.search_rounded, color: C.ink2, size: 20),
       suffixIcon: controller.text.isEmpty
           ? null
           : IconButton(
               icon: const Icon(Icons.close_rounded, size: 18, color: C.ink2),
-              tooltip: 'Borrar',
+              tooltip: t('Borrar'),
               onPressed: controller.clear,
             ),
       contentPadding: const EdgeInsets.symmetric(vertical: 14),
@@ -366,7 +367,7 @@ class _TileState extends State<_Tile> {
   bool _on = false;
   @override
   Widget build(BuildContext context) {
-    final chip = widget.instalado ? ('INSTALADO', C.ok) : (widget.j.listo ? ('LISTO', C.pink) : null);
+    final chip = widget.instalado ? (t('INSTALADO'), C.ok) : (widget.j.listo ? ('LISTO', C.pink) : null);
     return Semantics(
       button: true,
       label: widget.j.nombre,
@@ -433,19 +434,19 @@ class _Empty extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Nada por aquí', style: T.serif(size: 36)),
+        Text(t('Nada por aquí'), style: T.serif(size: 36)),
         const SizedBox(height: 8),
         Text(
-          q.isEmpty ? 'Esta colección está vacía.' : 'Ningún juego coincide con «$q». Prueba con otra palabra o quita algún filtro.',
+          q.isEmpty ? t('Esta colección está vacía.') : t('Ningún juego coincide con «{0}». Prueba con otra palabra o quita algún filtro.', [q]),
           style: T.sans(size: 15, color: C.ink2),
         ),
         if (q.isNotEmpty) ...[
           const SizedBox(height: 22),
           FilledButton.icon(
-            onPressed: () => proponerPort(nombre: q),
+            onPressed: () => publicarPort(nombre: q),
             style: FilledButton.styleFrom(backgroundColor: C.acc, padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16)),
             icon: const Icon(Icons.add_rounded, color: Colors.white),
-            label: Text('¿Existe un port de «$q»? Propónlo', style: T.sans(size: 14, w: FontWeight.w600, color: Colors.white)),
+            label: Text(t('¿Hay un port de «{0}»? Publícalo en Hangar', [q]), style: T.sans(size: 14, w: FontWeight.w600, color: Colors.white)),
           ),
         ],
       ],

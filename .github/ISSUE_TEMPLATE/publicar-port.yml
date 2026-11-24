@@ -1,0 +1,90 @@
+name: Publish a port · Publicar un port
+description: Put your decomp, recomp or source port in Hangar (or one you love). · Pon tu port en Hangar (o uno que te encante).
+title: "[Port] "
+labels: [publicar-port]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Making ports?** Hangar installs and launches them for players on Android and Mac, tracks playtime and achievements.
+        A bot checks your repo in a minute. Once approved, it shows up in the app without any update.
+        Add a [`hangar.json`](https://github.com/xNeku/achievements-ty/blob/main/PUBLISH.md) to your repo to control your listing and get the **author** badge.
+
+        **¿Haces ports?** Hangar los instala y abre en Android y Mac. Un bot revisa tu repo y, cuando se aprueba, sale en la app sin actualizarla.
+  - type: input
+    id: nombre
+    attributes:
+      label: Game · Juego
+      placeholder: "The Legend of Zelda: Majora's Mask"
+    validations:
+      required: true
+  - type: input
+    id: repo
+    attributes:
+      label: GitHub repository · Repositorio
+      placeholder: https://github.com/user/project
+    validations:
+      required: true
+  - type: dropdown
+    id: plataforma
+    attributes:
+      label: Platform · Plataforma
+      options:
+        - Android
+        - Mac
+        - Android + Mac
+    validations:
+      required: true
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: Project type · Tipo
+      options:
+        - Decomp
+        - Recomp
+        - Source port
+        - Other · Otro
+    validations:
+      required: true
+  - type: dropdown
+    id: autor
+    attributes:
+      label: Are you the developer? · ¿Es tu proyecto?
+      options:
+        - Yes, I make it · Sí, lo hago yo
+        - No, I'm a fan · No, soy fan
+    validations:
+      required: true
+  - type: textarea
+    id: requisitos
+    attributes:
+      label: What players need · Qué hace falta para jugar
+      description: The ROM or original game files each player must provide. · La ROM o archivos originales que pone cada uno.
+      placeholder: Your own N64 ROM (USA, .z64)
+  - type: input
+    id: archivo_mac
+    attributes:
+      label: Mac download file · Archivo para Mac (optional)
+      description: File name in your releases; use * for the part that changes. Empty = the bot guesses. · Usa * para la parte que cambia.
+      placeholder: Project-*-macOS.zip
+  - type: input
+    id: portada
+    attributes:
+      label: Cover image · Portada (optional)
+      description: Direct link to a vertical box-art image (SteamGridDB is great). · Enlace directo a una imagen vertical.
+  - type: input
+    id: hero
+    attributes:
+      label: Background image · Fondo (optional)
+      description: Wide horizontal image without text. · Imagen ancha sin texto.
+  - type: textarea
+    id: notas
+    attributes:
+      label: Anything else · Algo más
+  - type: checkboxes
+    id: legal
+    attributes:
+      label: Check · Comprobación
+      options:
+        - label: The repo doesn't ship the game (no ROMs or copyrighted assets); players bring their own copy. · El repo no incluye el juego.
+          required: true

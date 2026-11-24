@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'amigos.dart';
+import 'idioma.dart';
 import 'bigpicture.dart';
 import 'cuenta.dart';
 import 'data.dart';
@@ -27,7 +28,7 @@ Future<void> main() async {
   final mac = kIsWeb ? Uri.base.queryParameters.containsKey('mac') : Platform.isMacOS;
   catalogoMac = mac;
   final store = CatalogStore(mac ? 'juegos-mac.json' : 'juegos.json'), ajustes = Ajustes(), installer = Installer(), perfil = Perfil(), cuenta = Cuenta();
-  await Future.wait([store.init(), ajustes.init(), installer.init(), perfil.init(), cuenta.init(), arteElegido.init()]);
+  await Future.wait([store.init(), ajustes.init(), installer.init(), perfil.init(), cuenta.init(), arteElegido.init(), idioma.init()]);
   runApp(HangarApp(store: store, ajustes: ajustes, installer: installer, perfil: perfil, cuenta: cuenta));
 }
 
@@ -113,7 +114,7 @@ class _ShellState extends State<Shell> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'LOGRO DESBLOQUEADO',
+                      t('LOGRO DESBLOQUEADO'),
                       style: T.label(size: 10, color: h.color, w: FontWeight.w600),
                     ),
                     Text(h.titulo, style: T.sans(size: 15, w: FontWeight.w600)),
@@ -222,7 +223,7 @@ class _ShellState extends State<Shell> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([widget.store, widget.ajustes, widget.installer, widget.perfil, arteElegido]),
+    listenable: Listenable.merge([widget.store, widget.ajustes, widget.installer, widget.perfil, arteElegido, idioma]),
     builder: (context, _) {
       final all = widget.store.catalogo.juegos;
       final sel = _selector(all);
@@ -407,7 +408,7 @@ class _Rail extends StatelessWidget {
           child: Column(
             children: [
               Tooltip(
-                message: 'Tu perfil',
+                message: t('Tu perfil'),
                 child: InkWell(
                   customBorder: const CircleBorder(),
                   onTap: () => onTab(Tab.perfil),
@@ -423,18 +424,36 @@ class _Rail extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              b(Tab.juegos, Icons.sports_esports_outlined, Icons.sports_esports, 'Juegos'),
+              b(Tab.juegos, Icons.sports_esports_outlined, Icons.sports_esports, t('Juegos')),
               gap,
-              b(Tab.biblioteca, Icons.grid_view_outlined, Icons.grid_view_rounded, 'Biblioteca'),
+              b(Tab.biblioteca, Icons.grid_view_outlined, Icons.grid_view_rounded, t('Biblioteca')),
               gap,
-              b(Tab.logros, Icons.emoji_events_outlined, Icons.emoji_events, 'Logros'),
+              b(Tab.logros, Icons.emoji_events_outlined, Icons.emoji_events, t('Logros')),
               gap,
-              b(Tab.amigos, Icons.people_outline_rounded, Icons.people_rounded, 'Amigos'),
+              b(Tab.amigos, Icons.people_outline_rounded, Icons.people_rounded, t('Amigos')),
               const Spacer(),
               Container(width: compact ? 40 : 56, height: 1, color: C.line),
               SizedBox(height: compact ? 8 : 18),
+              // Idioma: la bandera es la del idioma actual; al tocarla cambia al otro.
               Tooltip(
-                message: 'Big Picture (Start)',
+                message: idioma.ingles ? 'Cambiar a español' : 'Switch to English',
+                preferBelow: false,
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: idioma.alternar,
+                    child: SizedBox.square(
+                      dimension: compact ? 42 : 52,
+                      child: Center(child: Bandera(idioma.codigo, ancho: compact ? 24 : 28)),
+                    ),
+                  ),
+                ),
+              ),
+              gap,
+              Tooltip(
+                message: t('Big Picture (Start)'),
                 preferBelow: false,
                 child: Material(
                   color: Colors.transparent,
@@ -450,7 +469,7 @@ class _Rail extends StatelessWidget {
                 ),
               ),
               gap,
-              b(Tab.ajustes, Icons.settings_outlined, Icons.settings, 'Ajustes'),
+              b(Tab.ajustes, Icons.settings_outlined, Icons.settings, t('Ajustes')),
             ],
           ),
         ),

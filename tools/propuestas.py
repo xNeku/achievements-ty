@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Propuestas de la comunidad (issues de GitHub) -> catálogo de Hangar.
+"""Publicaciones de ports (issues de GitHub) -> catálogo de Hangar.
 
-  revisar  Se ejecuta al abrir o editar la propuesta: comprueba el repositorio, busca las
-           descargas (APK / Mac) y las imágenes, y deja un comentario con lo que ha visto.
-  aplicar  Se ejecuta cuando alguien del equipo pone la etiqueta «aprobado»: añade el port
-           o las imágenes a data/juegos.json y/o data/juegos-mac.json.
+  revisar    Al abrir o editar la issue: comprueba el repositorio, su hangar.json, las descargas
+             (APK / Mac) y las imágenes, y deja un comentario con lo que ha visto.
+  aplicar    Cuando alguien del equipo pone la etiqueta «aprobado»: añade el port o las imágenes
+             a data/juegos.json y/o data/juegos-mac.json.
+  descubrir  Busca en GitHub repos con el tema «hangar-port» que aún no estén y prepara una issue
+             para cada uno (build/descubiertos/N.titulo y N.md), ya revisada.
 
 El texto de la issue lo escribe cualquiera: aquí solo se lee como datos (nunca se ejecuta ni
 se mete en comandos), y lo que entra al catálogo se valida antes.
 
-Uso: GITHUB_TOKEN=... python3 tools/propuestas.py revisar|aplicar   (lee GITHUB_EVENT_PATH)
+Uso: GITHUB_TOKEN=... python3 tools/propuestas.py revisar|aplicar|descubrir   (lee GITHUB_EVENT_PATH)
 Salida: escribe en build/propuesta-comentario.md el comentario para la issue, y en
 GITHUB_OUTPUT `cambiado=si|no` y `resumen=...`.
 """
@@ -18,6 +20,7 @@ import os
 import re
 import sys
 import unicodedata
+import base64
 import urllib.error
 import urllib.request
 
@@ -25,7 +28,9 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CAT_ANDROID = os.path.join(RAIZ, "data", "juegos.json")
 CAT_MAC = os.path.join(RAIZ, "data", "juegos-mac.json")
 TOKEN = os.environ.get("GITHUB_TOKEN", "")
-TIPOS = {"decomp": "decomp", "recomp": "recomp", "source port": "source-port", "otro": "port"}
+TIPOS = {"decomp": "decomp", "recomp": "recomp", "source port": "source-port", "other": "port", "otro": "port"}
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from revisar_catalogo import manifiesto  # noqa: E402
 MAC_PISTAS = re.compile(r"mac|macos|osx|darwin|apple|universal", re.I)
 MAC_EXT = re.compile(r"\.(zip|dmg|tar\.gz|tgz|tar\.xz|7z)$", re.I)
 
@@ -105,7 +110,7 @@ def salida(**kv):
 def comentar(texto):
     os.makedirs(os.path.join(RAIZ, "build"), exist_ok=True)
     with open(os.path.join(RAIZ, "build", "propuesta-comentario.md"), "w", encoding="utf-8") as fh:
-        fh.write(texto.rstrip() + "\n\n---\n_Mensaje automático de Hangar._\n")
+        fh.write(texto.rstrip() + "\n\n---\n_Hangar bot._\n")
 
 
 def buscar_juego(cat, nombre):
@@ -118,43 +123,74 @@ def buscar_juego(cat, nombre):
 
 # ───────────────────────── ports ─────────────────────────
 
-def analizar_port(f):
-    """Lee y comprueba la propuesta. Devuelve (datos, avisos, errores)."""
+def leer_manifiesto(repo):
+    """El hangar.json del repositorio (validado), o {}."""
+    try:
+        c = http_json(f"https://api.github.com/repos/{repo}/contents/hangar.json")
+        return manifiesto({"manifiesto": {"text": base64.b64decode(c.get("content", "")).decode("utf-8", "replace")}})
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def analizar_port(f, quien=""):
+    """Lee y comprueba la publicación. Devuelve (datos, avisos, errores)."""
     errores, avisos = [], []
-    nombre = campo(f, "nombre del juego").strip()[:120]
-    url = campo(f, "repositorio").strip()
+    nombre = campo(f, "game", "nombre del juego").strip()[:120]
+    url = campo(f, "github repository", "repositorio").strip()
     m = re.search(r"github\.com/([A-Za-z0-9-]+)/([A-Za-z0-9._-]+?)(?:\.git)?(?:[/#?].*)?$", url)
-    plat = campo(f, "plataforma").lower()
-    tipo = TIPOS.get(campo(f, "tipo").lower(), "port")
+    plat = campo(f, "platform", "plataforma").lower()
+    tipo = TIPOS.get(campo(f, "project type", "tipo").lower(), "port")
     datos = {
         "nombre": nombre,
         "android": "android" in plat,
         "mac": "mac" in plat,
         "tipo": tipo,
-        "requisitos": [l.strip("-* ").strip()[:200] for l in campo(f, "que hace falta").splitlines() if l.strip()][:6],
-        "archivo_mac": campo(f, "archivo de la descarga").strip()[:120],
-        "portada": campo(f, "portada").strip(),
-        "hero": campo(f, "imagen grande").strip(),
+        "requisitos": [l.strip("-* ").strip()[:200] for l in campo(f, "what players need", "que hace falta").splitlines() if l.strip()][:6],
+        "archivo_mac": campo(f, "mac download", "archivo de la descarga").strip()[:120],
+        "portada": campo(f, "cover", "portada").strip(),
+        "hero": campo(f, "background", "imagen grande").strip(),
+        "dice_autor": campo(f, "are you the developer").lower().startswith("yes"),
+        "autor": False,
+        "manifiesto": {},
     }
     if not nombre:
-        errores.append("Falta el nombre del juego.")
+        errores.append("Missing the game name. · Falta el nombre del juego.")
     if not m:
-        errores.append("El repositorio tiene que ser un enlace de GitHub (https://github.com/usuario/proyecto).")
+        errores.append("The repository must be a GitHub link (https://github.com/user/project). · El repositorio tiene que ser un enlace de GitHub.")
         return datos, avisos, errores
     if not (datos["android"] or datos["mac"]):
-        errores.append("Elige la plataforma.")
+        errores.append("Pick a platform. · Elige la plataforma.")
 
     try:
         info = http_json(f"https://api.github.com/repos/{m.group(1)}/{m.group(2)}")
     except urllib.error.HTTPError as e:
-        errores.append(f"No encuentro el repositorio en GitHub (HTTP {e.code}).")
+        errores.append(f"Can't find that repository on GitHub (HTTP {e.code}). · No encuentro el repositorio.")
         return datos, avisos, errores
     datos["repo"] = info["full_name"]
     datos["url"] = info["html_url"]
     datos["archivado"] = bool(info.get("archived"))
     datos["descripcion"] = (info.get("description") or "")[:300]
     if datos["archivado"]:
-        avisos.append("El repositorio está archivado: ya no se actualiza.")
+        avisos.append("The repository is archived. · El repositorio está archivado: ya no se actualiza.")
+
+    # ¿Lo publica su autor? Su dueño en GitHub, o un hangar.json (solo puede subirlo quien tiene acceso al repo).
+    man = leer_manifiesto(datos["repo"])
+    datos["manifiesto"] = man
+    es_dueno = quien and quien.lower() == datos["repo"].split("/")[0].lower()
+    datos["autor"] = bool(man) or bool(es_dueno)
+    if man:
+        avisos.append("hangar.json found: the listing will follow it. · Tiene hangar.json: Hangar seguirá lo que diga.")
+        datos["descripcion"] = man.get("descripcion") or datos["descripcion"]
+        datos["requisitos"] = man.get("requisitos") or datos["requisitos"]
+        if man.get("mac"):
+            datos["archivo_mac"] = man["mac"]["asset"]
+        for k in ("portada", "hero"):
+            datos[k] = (man.get("arte") or {}).get(k) or datos[k]
+    elif datos["dice_autor"] and not es_dueno:
+        avisos.append(
+            "To get the *author* badge, add a `hangar.json` to the repo (see PUBLISH.md). "
+            "· Para el sello de *autor*, añade un `hangar.json` al repo."
+        )
 
     try:
         releases = [r for r in http_json(f"https://api.github.com/repos/{datos['repo']}/releases?per_page=10") if not r.get("draft")]
@@ -163,29 +199,29 @@ def analizar_port(f):
     nombres = [a["name"] for r in releases for a in r.get("assets", [])]
     datos["apks"] = [n for n in nombres if n.lower().endswith(".apk")]
     if not releases:
-        avisos.append("No tiene ninguna versión publicada (releases): Hangar no podrá instalarlo hasta que la tenga.")
+        avisos.append("No releases yet: Hangar can't install it until there is one. · No tiene releases: no se podrá instalar hasta que las tenga.")
     if datos["android"] and releases and not datos["apks"]:
-        avisos.append("Las últimas versiones no traen ningún APK: en Android solo saldrá el enlace al proyecto.")
+        avisos.append("The latest releases have no APK: on Android only the project link will show. · Sin APK: en Android solo saldrá el enlace.")
 
     if datos["mac"]:
         if datos["archivo_mac"]:
             pat = re.compile("^" + ".*".join(map(re.escape, datos["archivo_mac"].split("*"))) + "$", re.I)
             if releases and not any(pat.match(n) for n in nombres):
-                avisos.append(f"Ningún archivo de las últimas versiones se llama «{datos['archivo_mac']}».")
+                avisos.append(f"No file in the latest releases matches `{datos['archivo_mac']}`. · Ningún archivo se llama así.")
         else:
             candidatos = [n for n in nombres if MAC_PISTAS.search(n) and MAC_EXT.search(n)]
             if candidatos:
                 # Se generaliza el número de versión para que siga valiendo en las siguientes.
                 datos["archivo_mac"] = re.sub(r"\d+(?:\.\d+)+", "*", candidatos[0])
-                avisos.append(f"Para Mac usaré el archivo «{datos['archivo_mac']}».")
+                avisos.append(f"For Mac I'll use `{datos['archivo_mac']}`. · Para Mac usaré ese archivo.")
             elif releases:
-                avisos.append("No encuentro una descarga para Mac en las últimas versiones. Indica el nombre del archivo.")
+                avisos.append("No Mac download found in the latest releases: tell us the file name. · No encuentro descarga para Mac.")
 
     for k in ("portada", "hero"):
         if datos[k]:
             ok, motivo = es_imagen(datos[k])
             if not ok:
-                avisos.append(f"La {'portada' if k == 'portada' else 'imagen de fondo'} {motivo}: no la usaré.")
+                avisos.append(f"The {'cover' if k == 'portada' else 'background'} image is not usable ({motivo}). · Esa imagen no vale.")
                 datos[k] = ""
 
     for cat, quiere in ((CAT_ANDROID, datos["android"]), (CAT_MAC, datos["mac"])):
@@ -193,7 +229,7 @@ def analizar_port(f):
             continue
         for j in cargar(cat)["juegos"]:
             if any(r.get("repo", "").lower() == datos["repo"].lower() for r in j.get("repos", [])):
-                errores.append(f"Este repositorio ya está en el catálogo de {'Mac' if cat == CAT_MAC else 'Android'} ({j['nombre']}).")
+                errores.append(f"Already in the {'Mac' if cat == CAT_MAC else 'Android'} catalog ({j['nombre']}). · Ya está en el catálogo.")
     return datos, avisos, errores
 
 
@@ -211,12 +247,15 @@ def aplicar_port(datos, issue):
             "archivado": datos["archivado"],
             "propuesta": issue,
         }
+        if datos["autor"]:
+            repo["autor"] = True
+            repo["autor_verificado"] = True
         if datos["requisitos"]:
             repo["requisitos"] = datos["requisitos"]
         if cat_path == CAT_MAC:
             if not datos["archivo_mac"]:
                 continue
-            repo["mac"] = {"asset": datos["archivo_mac"]}
+            repo["mac"] = {"asset": datos["archivo_mac"], **{k: v for k, v in (datos["manifiesto"].get("mac") or {}).items() if k != "asset"}}
             if datos["requisitos"]:
                 repo["mac"]["necesita"] = datos["requisitos"][0]
         j = buscar_juego(cat, datos["nombre"])
@@ -267,14 +306,14 @@ def poner_arte(j, nuevas):
 
 def analizar_imagenes(f):
     errores, avisos = [], []
-    nombre = campo(f, "juego").strip()
+    nombre = campo(f, "game", "juego").strip()
     datos = {"nombre": nombre, "img": {}}
     en = [p for p in (CAT_ANDROID, CAT_MAC) if buscar_juego(cargar(p), nombre)]
     datos["catalogos"] = en
     if not en:
-        errores.append(f"No encuentro «{nombre}» en Hangar. Escribe el nombre tal como sale en la app.")
-    for k, etiqueta in (("portada", "portada"), ("hero", "imagen grande"), ("logo", "logo")):
-        url = campo(f, etiqueta).strip()
+        errores.append(f"Can't find «{nombre}» in Hangar: use the name shown in the app. · No encuentro ese juego.")
+    for k, etiquetas in (("portada", ("cover", "portada")), ("hero", ("background", "imagen grande")), ("logo", ("logo",))):
+        url = campo(f, *etiquetas).strip()
         if not url:
             continue
         ok, motivo = es_imagen(url)
@@ -283,7 +322,7 @@ def analizar_imagenes(f):
         else:
             avisos.append(f"{k.capitalize()}: {motivo}.")
     if not datos["img"]:
-        errores.append("No hay ninguna imagen válida.")
+        errores.append("No valid image. · No hay ninguna imagen válida.")
     return datos, avisos, errores
 
 
@@ -298,51 +337,117 @@ def aplicar_imagenes(datos):
     return hechos
 
 
+# ───────────────────────── descubrir ─────────────────────────
+
+def descubrir(maximo=10):
+    """Repos con el tema «hangar-port» que todavía no están en Hangar ni tienen issue."""
+    conocidos = set()
+    for p in (CAT_ANDROID, CAT_MAC):
+        for j in cargar(p)["juegos"]:
+            conocidos |= {r.get("repo", "").lower() for r in j.get("repos", [])}
+    # Los que ya tienen issue (abierta o cerrada) no se repiten.
+    pag = 1
+    while pag <= 10:
+        issues = http_json(f"https://api.github.com/repos/{os.environ.get('GITHUB_REPOSITORY', '')}/issues?labels=publicar-port&state=all&per_page=100&page={pag}")
+        for it in issues:
+            for m in re.finditer(r"github\.com/([\w-]+/[\w.-]+)", it.get("body") or ""):
+                conocidos.add(m.group(1).lower().removesuffix(".git"))
+        if len(issues) < 100:
+            break
+        pag += 1
+    res = http_json("https://api.github.com/search/repositories?q=topic:hangar-port+fork:true&sort=updated&per_page=50")
+    out_dir = os.path.join(RAIZ, "build", "descubiertos")
+    os.makedirs(out_dir, exist_ok=True)
+    n = 0
+    for r in res.get("items", []):
+        if n >= maximo or r["full_name"].lower() in conocidos:
+            continue
+        rels = []
+        try:
+            rels = http_json(f"https://api.github.com/repos/{r['full_name']}/releases?per_page=5")
+        except Exception:  # noqa: BLE001
+            pass
+        nombres = [a["name"] for x in rels for a in x.get("assets", [])]
+        android = any(x.lower().endswith(".apk") for x in nombres)
+        mac = any(MAC_PISTAS.search(x) and MAC_EXT.search(x) for x in nombres) or bool(leer_manifiesto(r["full_name"]).get("mac"))
+        if not (android or mac):
+            continue
+        plat = "Android + Mac" if android and mac else ("Android" if android else "Mac")
+        nombre = re.sub(r"[-_]+", " ", r["name"]).strip()
+        cuerpo = (
+            f"### Game · Juego\n\n{nombre}\n\n### GitHub repository · Repositorio\n\n{r['html_url']}\n\n"
+            f"### Platform · Plataforma\n\n{plat}\n\n### Project type · Tipo\n\nOther · Otro\n\n"
+            f"### Are you the developer? · ¿Es tu proyecto?\n\nNo, I'm a fan · No, soy fan\n\n"
+            f"### Anything else · Algo más\n\nFound automatically: the repo has the `hangar-port` topic. "
+            f"Check the game name before approving. · Encontrado solo por el tema `hangar-port`: revisa el nombre antes de aprobar.\n"
+        )
+        f = leer_formulario(cuerpo)
+        datos, avisos, errores = analizar_port(f, r["owner"]["login"])
+        if errores:
+            continue
+        cuerpo += "\n---\n" + informe(datos, avisos, errores, False)
+        with open(os.path.join(out_dir, f"{n}.titulo"), "w", encoding="utf-8") as fh:
+            fh.write(f"[Port] {nombre}")
+        with open(os.path.join(out_dir, f"{n}.md"), "w", encoding="utf-8") as fh:
+            fh.write(cuerpo)
+        n += 1
+    print(f"{n} ports nuevos con el tema hangar-port")
+
+
 # ───────────────────────── principal ─────────────────────────
+
+def informe(datos, avisos, errores, imagenes):
+    lista = lambda xs: "\n".join(f"- {x}" for x in xs)  # noqa: E731
+    if errores:
+        texto = "### Something needs fixing · Hay que corregir algo\n" + lista(errores)
+    elif imagenes:
+        texto = f"### Looks good · Pinta bien\nValid images for **{datos['nombre']}**: {', '.join(datos['img'])}."
+    else:
+        plats = " + ".join(p for p, q in (("Android", datos["android"]), ("Mac", datos["mac"])) if q)
+        sello = " · ✔ by its author · del autor" if datos.get("autor") else ""
+        texto = f"### Looks good · Pinta bien\n**{datos['nombre']}** · [{datos['repo']}]({datos['url']}) · {plats}{sello}"
+        if datos.get("apks"):
+            texto += f"\n\nAPK: {', '.join(sorted(set(datos['apks']))[:4])}"
+    if avisos:
+        texto += "\n\n**Notes · Avisos**\n" + lista(avisos)
+    if not errores:
+        texto += "\n\nOnce the team adds the `aprobado` label, it goes live in Hangar. · Cuando el equipo ponga la etiqueta `aprobado`, saldrá en Hangar."
+    return texto
+
 
 def main():
     modo = sys.argv[1] if len(sys.argv) > 1 else "revisar"
+    if modo == "descubrir":
+        return descubrir()
     with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as fh:
         issue = json.load(fh)["issue"]
     etiquetas = {l["name"] for l in issue.get("labels", [])}
     f = leer_formulario(issue.get("body"))
     imagenes = "imagenes" in etiquetas
+    quien = (issue.get("user") or {}).get("login", "")
 
-    datos, avisos, errores = analizar_imagenes(f) if imagenes else analizar_port(f)
+    datos, avisos, errores = analizar_imagenes(f) if imagenes else analizar_port(f, quien)
     lista = lambda xs: "\n".join(f"- {x}" for x in xs)  # noqa: E731
 
     if modo == "revisar":
-        if errores:
-            texto = "### Hay que corregir algo\n" + lista(errores)
-        elif imagenes:
-            texto = f"### Pinta bien\nImágenes válidas para **{datos['nombre']}**: {', '.join(datos['img'])}."
-        else:
-            plats = " y ".join(p for p, q in (("Android", datos["android"]), ("Mac", datos["mac"])) if q)
-            texto = f"### Pinta bien\n**{datos['nombre']}** · [{datos['repo']}]({datos['url']}) · {plats}"
-            if datos.get("apks"):
-                texto += f"\n\nAPK encontrados: {', '.join(sorted(set(datos['apks']))[:4])}"
-        if avisos:
-            texto += "\n\n**Avisos**\n" + lista(avisos)
-        if not errores:
-            texto += "\n\nCuando alguien del equipo le ponga la etiqueta `aprobado`, entrará en el catálogo."
-        comentar(texto)
+        comentar(informe(datos, avisos, errores, imagenes))
         salida(cambiado="no", valido="no" if errores else "si")
         return
 
     # aplicar
     if errores:
-        comentar("### No se ha podido añadir\n" + lista(errores) + "\n\nCorrige la issue y vuelve a poner la etiqueta `aprobado`.")
+        comentar("### Couldn't add it · No se ha podido añadir\n" + lista(errores) + "\n\nFix the issue and add the `aprobado` label again. · Corrige la issue y vuelve a poner la etiqueta.")
         salida(cambiado="no", valido="no")
         return
     hechos = aplicar_imagenes(datos) if imagenes else aplicar_port(datos, issue["number"])
     if not hechos:
-        comentar("### No se ha podido añadir\nNo hay ninguna plataforma con descarga válida (para Mac hace falta el nombre del archivo).")
+        comentar("### Couldn't add it · No se ha podido añadir\nNo platform with a valid download (Mac needs the file name). · Ninguna plataforma tiene descarga válida.")
         salida(cambiado="no", valido="no")
         return
-    que = "Las imágenes de " if imagenes else ""
+    que = "Images for " if imagenes else ""
     comentar(
-        f"### Añadido\n{que}**{datos['nombre']}** ya está en el catálogo de {' y '.join(hechos)}. "
-        "Aparecerá en Hangar en unos minutos, sin actualizar la app. ¡Gracias!"
+        f"### Live in Hangar · Ya está en Hangar\n{que}**{datos['nombre']}** is now in the {' + '.join(hechos)} catalog. "
+        "It shows up in the app in a few minutes, no update needed. Thanks! · Sale en la app en unos minutos, sin actualizarla. ¡Gracias!"
     )
     resumen = re.sub(r"[^\w .:'()#-]", "", f"{'Imágenes' if imagenes else 'Port'}: {datos['nombre']} (#{issue['number']})")[:100]
     salida(cambiado="si", valido="si", resumen=resumen)

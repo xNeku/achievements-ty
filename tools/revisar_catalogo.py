@@ -8,6 +8,8 @@ Para cada repo consulta (por GraphQL, en lotes) sus últimas releases, si está 
 - Mac (data/juegos-mac.json): la release más reciente cuyo archivo encaje con el patrón del catálogo
   -> actualiza repo["mac"] (tag, file, version, url) y quita el sha256 si el archivo ha cambiado.
 - Ambos: repo["archivado"] y repo["requisitos"] (frases del README sobre la ROM o el disco que pide).
+- Si el repo tiene un `hangar.json` (ver PUBLISH.md), manda lo que diga su autor: descripción,
+  requisitos, qué APK o archivo de Mac bajar, cómo arrancarlo e imágenes. Y el port sale como «del autor».
 
 Uso: GITHUB_TOKEN=... python3 tools/revisar_catalogo.py data/juegos.json data/juegos-mac.json
 """
@@ -30,7 +32,46 @@ QUERY_REPO = """
       nodes {{ tagName isPrerelease isDraft releaseAssets(first: 50) {{ nodes {{ name size downloadUrl }} }} }}
     }}
     readme: object(expression: "HEAD:README.md") {{ ... on Blob {{ text }} }}
+    manifiesto: object(expression: "HEAD:hangar.json") {{ ... on Blob {{ text }} }}
   }}"""
+
+URL_OK = re.compile(r"^https://[^\s<>\"']{8,500}$")
+
+
+def manifiesto(d):
+    """El hangar.json del repo, validado. Devuelve {} si no hay o no vale."""
+    try:
+        m = json.loads(((d or {}).get("manifiesto") or {}).get("text") or "")
+    except ValueError:
+        return {}
+    if not isinstance(m, dict):
+        return {}
+    texto = lambda v, n: v.strip()[:n] if isinstance(v, str) and v.strip() else None  # noqa: E731
+    out = {}
+    if texto(m.get("description"), 400):
+        out["descripcion"] = texto(m["description"], 400)
+    req = m.get("requirements")
+    if isinstance(req, str):
+        req = [req]
+    if isinstance(req, list):
+        out["requisitos"] = [texto(x, 220) for x in req if texto(x, 220)][:6]
+    a = m.get("android") if isinstance(m.get("android"), dict) else {}
+    if texto(a.get("apk"), 120):
+        out["apk"] = texto(a["apk"], 120)
+    mac = m.get("mac") if isinstance(m.get("mac"), dict) else {}
+    if texto(mac.get("asset"), 120):
+        out["mac"] = {"asset": texto(mac["asset"], 120)}
+        if texto(mac.get("app"), 200):
+            out["mac"]["programa"] = texto(mac["app"], 200)
+        if isinstance(mac.get("args"), list):
+            out["mac"]["args"] = [str(x)[:200] for x in mac["args"]][:12]
+        if texto(mac.get("needs"), 200):
+            out["mac"]["necesita"] = texto(mac["needs"], 200)
+    img = m.get("images") if isinstance(m.get("images"), dict) else {}
+    arte = {k2: img[k] for k, k2 in (("cover", "portada"), ("hero", "hero"), ("logo", "logo")) if isinstance(img.get(k), str) and URL_OK.match(img[k])}
+    if arte:
+        out["arte"] = arte
+    return out
 
 PALABRAS = re.compile(
     r"\b(rom|roms|iso|isos|baserom|dump|dumped|\.z64|\.n64|\.v64|\.gba|\.nds|\.3ds|\.xex|\.xci|\.nsp|\.wbfs|\.rvz|\.cue|\.bin|\.chd|"
@@ -87,10 +128,12 @@ def patron(glob):
 def revisar(path, mac):
     cat = json.load(open(path, encoding="utf-8"))
     repos = []
+    juego_de = {}
     for j in cat["juegos"]:
         for r in j["repos"]:
             if re.fullmatch(r"[\w.-]+/[\w.-]+", r.get("repo", "")):
                 repos.append(r)
+                juego_de[id(r)] = j
     unicos = sorted({r["repo"] for r in repos})
     info = {}
     for i in range(0, len(unicos), LOTE):
@@ -109,9 +152,31 @@ def revisar(path, mac):
             r.pop("android", None)
             continue
         r["archivado"] = bool(d.get("isArchived"))
-        req = requisitos((d.get("readme") or {}).get("text"))
+        man = manifiesto(d)
+        req = man.get("requisitos") or requisitos((d.get("readme") or {}).get("text"))
         if req:
             r["requisitos"] = req
+        # Con hangar.json, lo que diga el autor manda sobre lo que hemos deducido nosotros.
+        if man:
+            r["autor"] = True
+            j = juego_de[id(r)]
+            if man.get("descripcion"):
+                j["descripcion"] = man["descripcion"]
+            if man.get("arte"):
+                arte = j.get("arte") or {}
+                for k, v in man["arte"].items():
+                    arte[k] = v
+                    arte[f"{k}_thumb"] = v
+                j["arte"] = arte
+                j["arte_estado"] = "manual"
+            if mac and man.get("mac"):
+                m = r.setdefault("mac", {})
+                if m.get("asset") != man["mac"]["asset"]:
+                    m.pop("sha256", None)
+                m.update(man["mac"])
+        elif not r.get("autor_verificado"):
+            # «Del autor» sin hangar.json solo si lo publicó su dueño desde el formulario.
+            r.pop("autor", None)
         rels = [x for x in (d.get("releases") or {}).get("nodes") or [] if not x.get("isDraft")]
         if mac:
             m = r.get("mac") or {}
@@ -129,7 +194,11 @@ def revisar(path, mac):
         else:
             r.pop("android", None)
             for rel in rels:
-                apks = sorted((a for a in rel["releaseAssets"]["nodes"] if a["name"].lower().endswith(".apk")), key=lambda a: -puntos_apk(a["name"]))
+                pat_apk = patron(man["apk"]) if man.get("apk") else None
+                apks = sorted(
+                    (a for a in rel["releaseAssets"]["nodes"] if a["name"].lower().endswith(".apk") and (not pat_apk or pat_apk.match(a["name"]))),
+                    key=lambda a: -puntos_apk(a["name"]),
+                )
                 if apks:
                     a = apks[0]
                     r["android"] = {"tag": rel["tagName"], "apk": a["name"], "url": a["downloadUrl"], "size": a["size"], "pre": bool(rel.get("isPrerelease"))}

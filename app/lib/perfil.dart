@@ -1,21 +1,22 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'cuenta.dart';
+import 'idioma.dart';
 import 'data.dart';
 import 'installer.dart';
 import 'logros.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
-String _horas(int s) => s < 3600 ? '${(s / 60).floor()} min' : '${(s / 3600).toStringAsFixed(1).replaceAll('.', ',')} h';
+String _horas(int s) => s < 3600 ? '${(s / 60).floor()} min' : '${(s / 3600).toStringAsFixed(1).replaceAll('.', idioma.ingles ? '.' : ',')} h';
 
 String _hace(DateTime? d) {
-  if (d == null) return 'Sin jugar';
+  if (d == null) return t('Sin jugar');
   final m = DateTime.now().difference(d).inMinutes;
-  if (m < 60) return 'Hace un rato';
-  if (m < 60 * 24) return 'Hoy';
-  if (m < 60 * 48) return 'Ayer';
-  if (m < 60 * 24 * 7) return 'Hace ${m ~/ (60 * 24)} días';
+  if (m < 60) return t('Hace un rato');
+  if (m < 60 * 24) return t('Hoy');
+  if (m < 60 * 48) return t('Ayer');
+  if (m < 60 * 24 * 7) return t('Hace {0} días', [m ~/ (60 * 24)]);
   return '${d.day}/${d.month}/${d.year}';
 }
 
@@ -61,7 +62,7 @@ class PerfilScreen extends StatelessWidget {
             ..sort((a, b) => (b.value.ultima ?? DateTime(2000)).compareTo(a.value.ultima ?? DateTime(2000)));
           final ganados = hitos.where((h) => perfil.ganados.containsKey(h.id)).toList()
             ..sort((a, b) => perfil.ganados[b.id]!.compareTo(perfil.ganados[a.id]!));
-          final nombre = perfil.nombre.isEmpty ? 'Sin nombre' : perfil.nombre;
+          final nombre = perfil.nombre.isEmpty ? t('Sin nombre') : perfil.nombre;
 
           Widget stat(String v, String l) => Expanded(
                 child: Padding(
@@ -86,7 +87,7 @@ class PerfilScreen extends StatelessWidget {
                     Text(nombre, style: T.serif(size: compact ? 40 : 60)),
                     const SizedBox(height: 6),
                     Text(
-                      cuenta.dentro ? 'Cuenta de Hangar · ${cuenta.amigos.length} amigos' : 'Solo en este dispositivo · sin cuenta',
+                      cuenta.dentro ? t('Cuenta de Hangar · {0} amigos', [cuenta.amigos.length]) : t('Solo en este dispositivo · sin cuenta'),
                       style: T.sans(size: 14, color: C.ink2),
                     ),
                   ]),
@@ -94,7 +95,7 @@ class PerfilScreen extends StatelessWidget {
                 TextButton.icon(
                   onPressed: onAjustes,
                   icon: const Icon(Icons.edit_outlined, size: 16, color: C.ink2),
-                  label: Text('EDITAR', style: T.label(size: 11, color: C.ink2, w: FontWeight.w600)),
+                  label: Text(t('EDITAR'), style: T.label(size: 11, color: C.ink2, w: FontWeight.w600)),
                 ),
               ]),
               SizedBox(height: compact ? 22 : 34),
@@ -103,26 +104,26 @@ class PerfilScreen extends StatelessWidget {
                 decoration: BoxDecoration(color: const Color(0xD1120E11), borderRadius: BorderRadius.circular(22), border: Border.all(color: C.line)),
                 child: IntrinsicHeight(
                   child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    stat(_horas(installer.segundosTotales), 'Jugadas'),
+                    stat(_horas(installer.segundosTotales), t('Jugadas')),
                     const VerticalDivider(width: 1, color: C.line),
-                    stat('${jugados.values.where((v) => v.ultima != null).length}', 'Juegos jugados'),
+                    stat('${jugados.values.where((v) => v.ultima != null).length}', t('Juegos jugados')),
                     const VerticalDivider(width: 1, color: C.line),
-                    stat('${installer.instaladosAhora}', 'Instalados'),
+                    stat('${installer.instaladosAhora}', t('Instalados')),
                     const VerticalDivider(width: 1, color: C.line),
-                    stat('${ganados.length}/${hitos.length}', 'Logros de Hangar'),
+                    stat('${ganados.length}/${hitos.length}', t('Logros de Hangar')),
                   ]),
                 ),
               ),
               SizedBox(height: compact ? 28 : 44),
               // Jugando últimamente
               Row(children: [
-                Expanded(child: Text('Jugando últimamente', style: T.serif(size: compact ? 30 : 40))),
+                Expanded(child: Text(t('Jugando últimamente'), style: T.serif(size: compact ? 30 : 40))),
               ]),
               const SizedBox(height: 16),
               if (recientes.isEmpty)
                 Panel(
                   padding: const EdgeInsets.all(24),
-                  child: Text('Todavía no has jugado con Hangar. Instala un juego desde la biblioteca y aparecerá aquí.', style: T.sans(size: 14, color: C.ink2, height: 1.5)),
+                  child: Text(t('Todavía no has jugado con Hangar. Instala un juego desde la biblioteca y aparecerá aquí.'), style: T.sans(size: 14, color: C.ink2, height: 1.5)),
                 )
               else
                 SizedBox(
@@ -152,12 +153,12 @@ class PerfilScreen extends StatelessWidget {
               SizedBox(height: compact ? 28 : 44),
               // Logros de Hangar ganados
               Row(children: [
-                Expanded(child: Text('Últimos logros', style: T.serif(size: compact ? 30 : 40))),
-                TextButton(onPressed: onLogros, child: Text('VER TODOS', style: T.label(size: 11, color: C.ink, w: FontWeight.w600))),
+                Expanded(child: Text(t('Últimos logros'), style: T.serif(size: compact ? 30 : 40))),
+                TextButton(onPressed: onLogros, child: Text(t('VER TODOS'), style: T.label(size: 11, color: C.ink, w: FontWeight.w600))),
               ]),
               const SizedBox(height: 16),
               if (ganados.isEmpty)
-                Text('Aún no has ganado ninguno. El primero cae en cuanto instales un juego.', style: T.sans(size: 14, color: C.ink2))
+                Text(t('Aún no has ganado ninguno. El primero cae en cuanto instales un juego.'), style: T.sans(size: 14, color: C.ink2))
               else
                 Wrap(spacing: 12, runSpacing: 12, children: [
                   for (final h in ganados.take(6))
@@ -182,8 +183,8 @@ class PerfilScreen extends StatelessWidget {
               if (cuenta.dentro && cuenta.amigos.isNotEmpty) ...[
                 SizedBox(height: compact ? 28 : 44),
                 Row(children: [
-                  Expanded(child: Text('Tus amigos', style: T.serif(size: compact ? 30 : 40))),
-                  TextButton(onPressed: onAmigos, child: Text('VER TODOS', style: T.label(size: 11, color: C.ink, w: FontWeight.w600))),
+                  Expanded(child: Text(t('Tus amigos'), style: T.serif(size: compact ? 30 : 40))),
+                  TextButton(onPressed: onAmigos, child: Text(t('VER TODOS'), style: T.label(size: 11, color: C.ink, w: FontWeight.w600))),
                 ]),
                 const SizedBox(height: 16),
                 Wrap(spacing: 18, runSpacing: 14, children: [
@@ -228,13 +229,13 @@ Future<void> verPerfilAmigo(BuildContext context, Cuenta cuenta, Amigo a) => sho
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(a.nombre, style: T.serif(size: 34)),
-                      Text('${_horas(total)} jugadas en sus últimos juegos', style: T.sans(size: 13, color: C.ink2)),
+                      Text(t('{0} jugadas en sus últimos juegos', [_horas(total)]), style: T.sans(size: 13, color: C.ink2)),
                     ]),
                   ),
                 ]),
                 const SizedBox(height: 22),
                 if (act.isEmpty)
-                  Text('Todavía no ha jugado con Hangar.', style: T.sans(size: 14, color: C.ink2))
+                  Text(t('Todavía no ha jugado con Hangar.'), style: T.sans(size: 14, color: C.ink2))
                 else
                   for (final p in act)
                     Padding(
@@ -250,7 +251,7 @@ Future<void> verPerfilAmigo(BuildContext context, Cuenta cuenta, Amigo a) => sho
                 const SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: TextButton(onPressed: () => Navigator.pop(context), child: Text('CERRAR', style: T.label(size: 12, color: C.ink, w: FontWeight.w600))),
+                  child: TextButton(onPressed: () => Navigator.pop(context), child: Text(t('CERRAR'), style: T.label(size: 12, color: C.ink, w: FontWeight.w600))),
                 ),
               ]),
             ),
