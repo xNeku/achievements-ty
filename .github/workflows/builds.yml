@@ -5,6 +5,7 @@ on:
     paths:
       - 'app/**'
       - 'data/**'
+      - 'tools/**'
       - '.github/workflows/builds.yml'
   workflow_dispatch:
 
@@ -19,7 +20,34 @@ env:
   FLUTTER_VERSION: '3.50.1'
 
 jobs:
+  # Revisa en GitHub cada port: APK o descarga de Mac, última versión, si está archivado y qué pide.
+  catalogo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Revisar los ports en GitHub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/revisar_catalogo.py data/juegos.json data/juegos-mac.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: catalogo
+          path: data/*.json
+
+      - name: Guardar el catálogo revisado en la rama
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/*.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Catálogo revisado en GitHub"
+          git push origin HEAD:${{ github.ref_name }} || echo "La rama ha cambiado; se guardará en la próxima build"
+
   android:
+    needs: catalogo
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -38,8 +66,13 @@ jobs:
           channel: stable
           cache: true
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: catalogo
+          path: data
+
       - name: Catálogo dentro de la app
-        run: cp ../data/juegos.json assets/juegos.json
+        run: cp ../data/juegos.json ../data/juegos-mac.json assets/
 
       - name: Dependencias
         run: flutter pub get
@@ -67,6 +100,7 @@ jobs:
           path: hangar.apk
 
   macos:
+    needs: catalogo
     runs-on: macos-latest
     defaults:
       run:
@@ -80,8 +114,13 @@ jobs:
           channel: stable
           cache: true
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: catalogo
+          path: data
+
       - name: Catálogo dentro de la app
-        run: cp ../data/juegos.json assets/juegos.json
+        run: cp ../data/juegos.json ../data/juegos-mac.json assets/
 
       - name: Compilar app de Mac
         run: |
@@ -112,6 +151,8 @@ jobs:
           files: |
             hangar.apk
             hangar-mac.zip
+            juegos.json
+            juegos-mac.json
           body: |
             Compilado desde `${{ github.ref_name }}` (${{ github.sha }}).
 
