@@ -31,17 +31,35 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 tools/revisar_catalogo.py data/juegos.json data/juegos-mac.json
 
+      # Base de datos de logros: volcado de Xbox 360 / One y, si hay clave, RetroAchievements.
+      - name: Fuentes de logros
+        run: |
+          pip install --quiet pillow
+          git clone --quiet --depth 1 https://github.com/prashantkhandelwal/XBoxAchievements /tmp/xba
+
+      - name: Construir la base de datos de logros
+        env:
+          RA_API_KEY: ${{ secrets.RA_API_KEY }}
+        run: python3 tools/logros/construir.py --xbox /tmp/xba/Data --out build/logros
+
       - uses: actions/upload-artifact@v4
         with:
           name: catalogo
-          path: data/*.json
+          path: |
+            data/*.json
+            data/logros/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: logros-db
+          path: build/logros/logros.db
 
       - name: Guardar el catálogo revisado en la rama
         if: github.event_name == 'push'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/*.json
+          git add data/*.json data/logros
           git diff --cached --quiet && exit 0
           git commit -m "Catálogo revisado en GitHub"
           git push origin HEAD:${{ github.ref_name }} || echo "La rama ha cambiado; se guardará en la próxima build"
@@ -71,8 +89,10 @@ jobs:
           name: catalogo
           path: data
 
-      - name: Catálogo dentro de la app
-        run: cp ../data/juegos.json ../data/juegos-mac.json assets/
+      - name: Catálogo y logros dentro de la app
+        run: |
+          cp ../data/juegos.json ../data/juegos-mac.json assets/
+          rm -rf assets/logros && cp -r ../data/logros assets/logros
 
       - name: Dependencias
         run: flutter pub get
@@ -119,8 +139,10 @@ jobs:
           name: catalogo
           path: data
 
-      - name: Catálogo dentro de la app
-        run: cp ../data/juegos.json ../data/juegos-mac.json assets/
+      - name: Catálogo y logros dentro de la app
+        run: |
+          cp ../data/juegos.json ../data/juegos-mac.json assets/
+          rm -rf assets/logros && cp -r ../data/logros assets/logros
 
       - name: Compilar app de Mac
         run: |
@@ -153,6 +175,7 @@ jobs:
             hangar-mac.zip
             juegos.json
             juegos-mac.json
+            logros.db
           body: |
             Compilado desde `${{ github.ref_name }}` (${{ github.sha }}).
 

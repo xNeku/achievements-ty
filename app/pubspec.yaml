@@ -67,6 +67,8 @@ flutter:
   assets:
     - assets/juegos.json
     - assets/juegos-mac.json
+    - assets/logros/android/
+    - assets/logros/mac/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

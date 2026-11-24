@@ -30,6 +30,18 @@ Hace falta tu propia copia de cada juego (la ROM o el disco).
 - **Actualizaciones**: si el catálogo trae una versión más nueva que la instalada, aparece «Actualizar» en el panel de versiones. Se conservan tu copia y tu tiempo jugado.
 - Los ports que se preparan a mano muestran sus pasos en el panel de versiones.
 
+## Base de datos de logros
+
+`tools/logros/construir.py` junta en un único SQLite (`logros.db`, publicado en cada Release) las listas de logros de varias fuentes y enlaza cada juego de nuestros catálogos con la suya:
+
+| Fuente | Qué aporta | Estado |
+|---|---|---|
+| Volcado de Xbox 360 y Xbox One | ~2.600 juegos, ~95.000 logros con icono | activo |
+| RetroAchievements (Web API) | N64, PS1, PS2, GameCube, SNES, GBA… | listo, falta la clave `RA_API_KEY` |
+| Steam (`GetSchemaForGame`) | ports de PC | pendiente |
+
+Solo se guardan los datos de los logros (nombre, descripción, puntos e icono); Hangar no vincula ninguna cuenta. Cada juego enlazado lleva su lista en `data/logros/<android|mac>/<id>.json`, que la app muestra en la pantalla del juego. Desbloquearlos necesita que el port avise a Hangar.
+
 ## Lo que hace distinto a Hangar
 
 - Android y Mac, en horizontal y con mando (cruceta, A, B, L1 y R1).
@@ -48,6 +60,8 @@ app/                 proyecto Flutter
   lib/pages.dart     logros, amigos y ajustes
   lib/logros.dart    logros de Hangar y perfil
 tools/revisar_catalogo.py  revisa en GitHub los ports de los catálogos
+tools/logros/construir.py  base de datos de logros
+data/logros/         listas de logros de cada juego del catálogo
   lib/data.dart      modelo del catálogo y descarga
 data/juegos*.json    catálogos de Android y Mac
 .github/workflows/   compilación de Android y Mac
@@ -63,4 +77,4 @@ flutter build apk
 flutter build macos    # solo desde un Mac
 ```
 
-Lo que todavía no hace: cuentas y amigos en la nube, logros propios de cada juego, ajustes por juego y preparar los ports que se montan a mano (se muestran sus pasos).
+Lo que todavía no hace: cuentas y amigos en la nube, desbloquear los logros de cada juego, ajustes por juego y preparar los ports que se montan a mano (se muestran sus pasos).

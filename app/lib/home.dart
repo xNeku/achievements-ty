@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'data.dart';
 import 'installer.dart';
+import 'logros_juego.dart';
 import 'play.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -440,7 +441,7 @@ class _GameScreen extends StatelessWidget {
           right: compact ? 18 : 48,
           bottom: compact ? 16 : 56,
           child: Row(children: [
-            _Mini(onTap: onDown, compact: compact, segundos: installer.segundos(g)),
+            _Mini(onTap: onDown, compact: compact, segundos: installer.segundos(g), logros: g.logros.isEmpty ? 0 : g.logros.first.total),
             SizedBox(width: compact ? 12 : 20),
             PlayButton(g: g, installer: installer, compact: compact, onTap: onPlay),
             SizedBox(width: compact ? 8 : 12),
@@ -571,7 +572,8 @@ class _Mini extends StatelessWidget {
   final VoidCallback onTap;
   final bool compact;
   final int segundos;
-  const _Mini({required this.onTap, required this.compact, required this.segundos});
+  final int logros;
+  const _Mini({required this.onTap, required this.compact, required this.segundos, this.logros = 0});
 
   @override
   Widget build(BuildContext context) {
@@ -584,7 +586,7 @@ class _Mini extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(children: [stat(segundos == 0 ? '0 h' : horas(segundos), 'Jugado'), SizedBox(width: compact ? 16 : 26), stat('—', 'Logros')]),
+        child: Row(children: [stat(segundos == 0 ? '0 h' : horas(segundos), 'Jugado'), SizedBox(width: compact ? 16 : 26), stat(logros > 0 ? '0/$logros' : '—', 'Logros')]),
       ),
     );
   }
@@ -623,27 +625,10 @@ class _RecordScreen extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(side + inset, compact ? 28 : 48, side, 56),
             sliver: SliverList.list(children: [
               const SectionTitle('Tu partida'),
-              _Stats(compact: compact, segundos: installer.segundos(g), ultima: installer.ultima(g)),
+              _Stats(compact: compact, segundos: installer.segundos(g), ultima: installer.ultima(g), totalLogros: g.logros.isEmpty ? 0 : g.logros.first.total),
               SizedBox(height: compact ? 36 : 56),
               const SectionTitle('Logros'),
-              Panel(
-                padding: const EdgeInsets.all(28),
-                child: Row(children: [
-                  Container(
-                    width: 58,
-                    height: 58,
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), color: C.glass, border: Border.all(color: C.line)),
-                    child: const Icon(Icons.emoji_events_outlined, color: C.ink3, size: 26),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Text(
-                      'Este juego todavía no tiene lista de logros. Cuando la tenga, aparecerán aquí con su rareza y la fecha en que los consigas.',
-                      style: T.sans(size: 15, color: C.ink2, height: 1.5),
-                    ),
-                  ),
-                ]),
-              ),
+              LogrosDelJuego(g, key: ValueKey('logros-${g.id}')),
               SizedBox(height: compact ? 36 : 56),
               SectionTitle('Proyectos', italic: 'en GitHub', trailing: Text('${g.repos.length} ${g.repos.length == 1 ? 'versión' : 'versiones'}', style: T.sans(size: 14, color: C.ink2))),
               LayoutBuilder(builder: (context, box) {
@@ -715,7 +700,8 @@ class _Stats extends StatelessWidget {
   final bool compact;
   final int segundos;
   final DateTime? ultima;
-  const _Stats({required this.compact, required this.segundos, this.ultima});
+  final int totalLogros;
+  const _Stats({required this.compact, required this.segundos, this.ultima, this.totalLogros = 0});
 
   @override
   Widget build(BuildContext context) {
@@ -741,7 +727,7 @@ class _Stats extends StatelessWidget {
           ]),
         );
     final t = segundos < 3600 ? ['${(segundos / 60).floor()}', 'min'] : [(segundos / 3600).toStringAsFixed(1).replaceAll('.', ','), 'h'];
-    final tiles = [tile(t[0], t[1], 'Tiempo jugado'), tile('0', '', 'Logros obtenidos'), tile('0', '%', 'Completado', bar: 0), tile(cuando(ultima), '', 'Última sesión')];
+    final tiles = [tile(t[0], t[1], 'Tiempo jugado'), tile('0', totalLogros > 0 ? '/ $totalLogros' : '', 'Logros obtenidos'), tile('0', '%', 'Completado', bar: 0), tile(cuando(ultima), '', 'Última sesión')];
     return Container(
       decoration: BoxDecoration(color: const Color(0xD1120E11), borderRadius: BorderRadius.circular(22), border: Border.all(color: C.line)),
       child: IntrinsicHeight(

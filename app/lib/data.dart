@@ -16,6 +16,8 @@ List<String> catalogUrls(String file) => [
 /// Este dispositivo usa el catálogo de Mac (si no, el de Android).
 bool catalogoMac = false;
 
+const fuenteLabel = {'xbox360': 'Xbox 360', 'xboxone': 'Xbox One', 'retroachievements': 'RetroAchievements', 'steam': 'Steam', 'psn': 'PlayStation', 'hangar': 'Hangar'};
+
 const tipoLabel = {'recomp': 'Recomp', 'decomp': 'Decomp', 'source-port': 'Source port', 'emulator': 'Emulador'};
 
 /// Cómo se instala y arranca un port en el Mac (sale del catálogo de RecompLauncher).
@@ -121,6 +123,8 @@ class Arte {
 class Juego {
   final String id, nombre, confianza, descripcion;
   final int orden;
+  /// Listas de logros que tiene en la base de datos de Hangar (Xbox 360, RetroAchievements…).
+  final List<({String fuente, int total, int puntos})> logros;
   final List<String> proyectos, tipos, notas;
   final List<Repo> repos;
   final Arte? arte;
@@ -130,6 +134,7 @@ class Juego {
     required this.confianza,
     this.descripcion = '',
     this.orden = 9999,
+    this.logros = const [],
     required this.proyectos,
     required this.tipos,
     required this.notas,
@@ -145,6 +150,10 @@ class Juego {
       confianza: '${j['confianza_nombre'] ?? 'original'}',
       descripcion: '${j['descripcion'] ?? ''}',
       orden: (j['orden'] as num?)?.toInt() ?? 9999,
+      logros: [
+        for (final l in (j['logros'] as List? ?? const []))
+          (fuente: '${l['fuente']}', total: (l['total'] as num?)?.toInt() ?? 0, puntos: (l['puntos'] as num?)?.toInt() ?? 0),
+      ],
       proyectos: strs(j['proyectos']),
       tipos: strs(j['tipos']),
       notas: strs(j['notas']),
@@ -196,6 +205,15 @@ class CatalogStore extends ChangeNotifier {
   bool cargando = false;
   String? error;
 
+  String _version = '';
+
+  /// Fecha de la última revisión del catálogo (la más reciente de las que trae en `_meta`).
+  static String version(String raw) {
+    final head = raw.substring(0, raw.length < 2500 ? raw.length : 2500);
+    final fechas = RegExp(r'"(revisado|logros_generado)"\s*:\s*"([^"]+)"').allMatches(head).map((m) => m.group(2)!).toList()..sort();
+    return fechas.isEmpty ? '' : fechas.last;
+  }
+
   String get _kRaw => 'catalogo_raw_$file';
   String get _kWhen => 'catalogo_when_$file';
 
@@ -204,13 +222,16 @@ class CatalogStore extends ChangeNotifier {
     final cached = prefs.getString(_kRaw);
     final bundled = await rootBundle.loadString('assets/$file');
     // La copia descargada solo gana si es igual o más reciente que la que trae la app.
-    String revisado(String raw) => RegExp(r'"revisado"\s*:\s*"([^"]+)"').firstMatch(raw.substring(0, raw.length < 1500 ? raw.length : 1500))?.group(1) ?? '';
-    if (cached != null && revisado(cached).compareTo(revisado(bundled)) >= 0) {
+    if (cached != null && version(cached).compareTo(version(bundled)) >= 0) {
       try {
         catalogo = Catalogo(Catalogo.parse(cached), 'GitHub', DateTime.tryParse(prefs.getString(_kWhen) ?? ''));
+        _version = version(cached);
       } catch (_) {}
     }
-    if (catalogo.juegos.isEmpty) catalogo = Catalogo(Catalogo.parse(bundled), 'integrado', null);
+    if (catalogo.juegos.isEmpty) {
+      catalogo = Catalogo(Catalogo.parse(bundled), 'integrado', null);
+      _version = version(bundled);
+    }
     notifyListeners();
     refresh();
   }
@@ -232,6 +253,9 @@ class CatalogStore extends ChangeNotifier {
         } catch (_) {}
       }
       if (body == null) throw 'sin conexión con GitHub';
+      // No cambiamos a un catálogo más viejo que el que ya tenemos.
+      if (version(body).compareTo(_version) < 0) return;
+      _version = version(body);
       final juegos = Catalogo.parse(body);
       if (juegos.isEmpty) throw 'catálogo vacío';
       final now = DateTime.now();
