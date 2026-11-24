@@ -266,7 +266,7 @@ class _AjustesScreenState extends State<AjustesScreen> {
             'Cuenta de Hangar',
             widget.cuenta.dentro
                 ? 'Conectado como ${widget.cuenta.email}. Tus horas y logros se guardan en el servidor.'
-                : 'Sin cuenta: tus horas y logros solo están en este dispositivo.',
+                : widget.cuenta.configurado ? 'Sin cuenta: tus horas y logros solo están en este dispositivo. Servidor: ${widget.cuenta.servidor}' : 'Sin cuenta: tus horas y logros solo están en este dispositivo.',
             widget.cuenta.dentro
                 ? TextButton(
                     onPressed: widget.cuenta.salir,
