@@ -465,7 +465,7 @@ class _GameScreen extends StatelessWidget {
                 GlassButton(icon: Icons.chevron_left_rounded, onTap: onPrev, tooltip: t('Anterior'), size: compact ? 42 : 52),
                 SizedBox(width: compact ? 10 : 14),
                 GlassButton(icon: Icons.chevron_right_rounded, onTap: onNext, tooltip: t('Siguiente'), size: compact ? 42 : 52),
-                if (MediaQuery.sizeOf(context).width > 980) ...[const SizedBox(width: 18), _Strip(juegos: juegos, index: index, onPick: onPick)],
+                if (_huecos(context, compact) > 0) ...[const SizedBox(width: 18), _Strip(juegos: juegos, index: index, onPick: onPick, span: _huecos(context, compact))],
                 const SizedBox(width: 14),
                 Text('${(index + 1).toString().padLeft(2, '0')} / ${juegos.length.toString().padLeft(2, '0')}', style: T.label(size: 12, color: C.ink2)),
               ],
@@ -580,16 +580,28 @@ class _Info extends StatelessWidget {
   }
 }
 
+/// Cuántas miniaturas caben entre las flechas y el bloque de JUGAR sin pisarse (0 = ninguna).
+int _huecos(BuildContext context, bool compact) {
+  if (compact) return 0;
+  final ancho = MediaQuery.sizeOf(context).width;
+  // Flechas y contador a la izquierda (~330) y tiempo, logros, JUGAR y ··· a la derecha (~640), más márgenes.
+  final sitio = ancho - 92 - 330 - 640;
+  if (sitio < 120) return 0;
+  final n = ((sitio - 52) / 42).floor() + 1;
+  return (n.isEven ? n - 1 : n).clamp(1, 9);
+}
+
 class _Strip extends StatelessWidget {
   final List<Juego> juegos;
-  final int index;
+  final int index, span;
   final ValueChanged<int> onPick;
-  const _Strip({required this.juegos, required this.index, required this.onPick});
+  const _Strip({required this.juegos, required this.index, required this.onPick, this.span = 9});
 
   @override
   Widget build(BuildContext context) {
-    final n = juegos.length, span = n < 9 ? n : 9;
-    final start = n <= 9 ? 0 : index - 4;
+    final n = juegos.length, span = n < this.span ? n : this.span;
+    // Sin dar la vuelta: al principio de la lista se ven los siguientes, no los últimos.
+    final start = (index - span ~/ 2).clamp(0, n - span);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [

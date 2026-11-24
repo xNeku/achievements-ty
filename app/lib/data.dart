@@ -302,6 +302,11 @@ class CatalogStore extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final cached = prefs.getString(_kRaw);
     final bundled = await rootBundle.loadString('assets/$file');
+    // La demo del artefacto lleva su catálogo con las imágenes dentro: ni caché ni descargas.
+    if (bundled.contains('"demo":true')) {
+      catalogo = Catalogo(Catalogo.parse(bundled), 'demo', null);
+      return notifyListeners();
+    }
     // La copia descargada solo gana si es igual o más reciente que la que trae la app.
     if (cached != null && version(cached).compareTo(version(bundled)) >= 0) {
       try {

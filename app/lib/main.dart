@@ -25,7 +25,7 @@ Future<void> main() async {
   await SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   // Cada sistema tiene su catálogo: los ports de Android no sirven en el Mac y al revés.
-  final mac = kIsWeb ? Uri.base.queryParameters.containsKey('mac') : Platform.isMacOS;
+  final mac = kIsWeb ? (Uri.base.queryParameters.containsKey('mac') || Uri.base.fragment == 'mac') : Platform.isMacOS;
   catalogoMac = mac;
   final store = CatalogStore(mac ? 'juegos-mac.json' : 'juegos.json'), ajustes = Ajustes(), installer = Installer(), perfil = Perfil(), cuenta = Cuenta();
   await Future.wait([store.init(), ajustes.init(), installer.init(), perfil.init(), cuenta.init(), arteElegido.init(), idioma.init()]);

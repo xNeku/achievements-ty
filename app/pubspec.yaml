@@ -69,6 +69,7 @@ flutter:
     - assets/juegos-mac.json
     - assets/logros/android/
     - assets/logros/mac/
+    - assets/google_fonts/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

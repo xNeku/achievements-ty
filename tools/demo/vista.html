@@ -1,0 +1,165 @@
+<title>Hangar</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=Cormorant+Garamond:wght@500;600&display=swap">
+<style>
+/* Una mesa oscura con el aparato encima: la app de verdad dentro de una tablet o de una ventana de Mac.
+   Mismo mundo que Hangar: pared casi negra, tinta cálida, acento brasa. Un solo aspecto, oscuro, a propósito. */
+:root{
+  --wall:#0A0809; --card:#120E11; --panel:#1A1418;
+  --ink:#F4EFF1; --ink2:rgba(244,239,241,.62); --ink3:rgba(244,239,241,.42); --line:rgba(255,255,255,.08);
+  --acc:#E8463B; --pink:#F2507F; --ok:#44D27A;
+  --sans:"Sora","Segoe UI",system-ui,sans-serif; --serif:"Cormorant Garamond",Georgia,serif;
+  --ease:cubic-bezier(.22,.8,.2,1);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--wall);color:var(--ink)}
+body{font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:clip;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px;
+  background:radial-gradient(70% 50% at 50% 0%,rgba(232,70,59,.10),transparent 70%),var(--wall)}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+a{color:var(--ink)}
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+
+.top{max-width:1240px;margin:0 auto;display:flex;align-items:flex-end;justify-content:space-between;gap:16px 28px;flex-wrap:wrap;padding-block:28px 22px}
+.brand{display:flex;flex-direction:column;gap:4px;min-width:0}
+.brand h1{margin:0;font-family:var(--serif);font-weight:600;font-size:clamp(40px,6vw,64px);line-height:.95;letter-spacing:.005em;text-wrap:balance}
+.brand p{margin:0;color:var(--ink2);font-size:14px}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3)}
+
+.seg{display:inline-flex;gap:4px;padding:4px;border-radius:14px;background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px var(--line)}
+.seg button{display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);transition:background .2s,color .2s}
+.seg button svg{width:18px;height:18px}
+.seg button[aria-pressed="true"]{background:var(--acc);color:#fff}
+.seg button:not([aria-pressed="true"]):hover{color:var(--ink);background:rgba(255,255,255,.06)}
+
+.stage{max-width:1240px;margin:0 auto}
+/* Tablet Android: bisel negro redondeado. Mac: ventana con barra y semáforo. */
+.device{position:relative;margin:0 auto;transition:max-width .5s var(--ease)}
+.device .screen{position:relative;aspect-ratio:16/10;max-width:100%;overflow:hidden;background:var(--card)}
+.device iframe,.device .shots{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+.android{max-width:1180px;padding:clamp(10px,1.6vw,22px);border-radius:clamp(22px,3vw,40px);background:linear-gradient(160deg,#25202a,#0f0c10);
+  box-shadow:0 50px 120px rgba(0,0,0,.7),inset 0 0 0 1px rgba(255,255,255,.07),inset 0 1px 0 rgba(255,255,255,.08)}
+.android .screen{border-radius:clamp(10px,1.4vw,18px)}
+.android .cam{position:absolute;left:50%;top:calc(clamp(10px,1.6vw,22px)/2);width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:#2c2830;box-shadow:inset 0 0 0 1px #3a3540}
+.mac{max-width:1240px;border-radius:12px;overflow:hidden;background:#1d181c;box-shadow:0 50px 120px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.1)}
+.mac .bar{height:34px;display:flex;align-items:center;gap:8px;padding:0 14px;background:linear-gradient(#2a2428,#211c20);border-bottom:1px solid rgba(0,0,0,.5)}
+.mac .bar i{width:12px;height:12px;border-radius:50%;background:#ff5f57}
+.mac .bar i:nth-child(2){background:#febc2e}.mac .bar i:nth-child(3){background:#28c840}
+.mac .bar span{flex:1;text-align:center;font-size:12px;color:var(--ink3);margin-right:52px}
+.android .bar{display:none}.mac .cam{display:none}
+
+.loading{position:absolute;inset:0;display:grid;place-items:center;align-content:center;gap:14px;background:var(--card);color:var(--ink2);font-size:13px;letter-spacing:.14em;text-transform:uppercase;transition:opacity .5s}
+.loading b{display:block;width:44px;height:44px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--acc);animation:spin 1s linear infinite}
+.loading.off{opacity:0;pointer-events:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Plan B: capturas reales si la app no arranca en este visor */
+.shots{background:var(--card)}
+.shots img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .4s}
+.shots img.on{opacity:1}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:18px}
+.tabs button{padding:8px 14px;border-radius:999px;font-size:13px;color:var(--ink2);box-shadow:inset 0 0 0 1px var(--line)}
+.tabs button[aria-pressed="true"]{color:var(--ink);background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.3)}
+
+.notes{max-width:1240px;margin:26px auto 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.note{padding:16px 18px;border-radius:16px;background:rgba(255,255,255,.035);box-shadow:inset 0 0 0 1px var(--line);min-width:0}
+.note b{display:block;font-weight:600;font-size:14px;margin-bottom:4px}
+.note p{margin:0;color:var(--ink2);font-size:13.5px}
+.note kbd{font-family:var(--sans);font-size:12px;padding:1px 6px;border-radius:5px;background:rgba(255,255,255,.08);box-shadow:inset 0 -1px 0 rgba(255,255,255,.08)}
+.stamp{max-width:1240px;margin:22px auto 0;font-size:12px;color:var(--ink3);display:flex;gap:6px 18px;flex-wrap:wrap}
+.stamp span{font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header class="top">
+  <div class="brand">
+    <span class="eyebrow">Vista previa · la app de verdad</span>
+    <h1>Hangar</h1>
+    <p id="sub">Así va la app ahora mismo. Tócala, desliza y cambia de sección.</p>
+  </div>
+  <div class="seg" role="group" aria-label="Plataforma">
+    <button id="b-android" data-p="android" aria-pressed="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="13" rx="2.5"/><path d="M12 15.5h.01"/></svg>Android
+    </button>
+    <button id="b-mac" data-p="mac" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="16" height="11" rx="1.8"/><path d="M2 19h20"/></svg>Mac
+    </button>
+  </div>
+</header>
+
+<main class="stage">
+  <div class="device android" id="device">
+    <div class="bar" aria-hidden="true"><i></i><i></i><i></i><span>Hangar</span></div>
+    <i class="cam" aria-hidden="true"></i>
+    <div class="screen">
+      <iframe id="app" title="Hangar funcionando" src="app/index.html#android" allow="fullscreen; autoplay"></iframe>
+      <div class="shots" id="shots" hidden></div>
+      <div class="loading" id="loading"><b></b><span id="loadtxt">Arrancando Hangar…</span></div>
+    </div>
+  </div>
+  <div class="tabs" id="tabs" hidden></div>
+</main>
+
+<section class="notes" aria-label="Cómo probarla">
+  <div class="note"><b>Moverte</b><p>Desliza o usa las flechas para cambiar de juego. Hacia abajo, tu partida y los logros. <kbd>L1</kbd> <kbd>R1</kbd> o la barra lateral cambian de sección.</p></div>
+  <div class="note"><b>Biblioteca de cada sistema</b><p>Android y Mac tienen catálogos distintos: arriba eliges cuál ver. Las portadas son las de la app; los juegos sin arte salen con su portada generada.</p></div>
+  <div class="note"><b>Qué no hace aquí</b><p>Instalar y jugar solo funcionan en la tablet o en el Mac. El botón de la tele abre Big Picture y la bandera cambia el idioma.</p></div>
+</section>
+<p class="stamp" id="stamp"></p>
+
+<script>
+const META = window.__DEMO__ || {};
+const SHOTS = { android: [], mac: [] };
+const NOMBRES = { home: 'Inicio', juego: 'Ficha del juego', biblioteca: 'Biblioteca', perfil: 'Perfil', big: 'Big Picture', ajustes: 'Ajustes' };
+const app = document.getElementById('app'), device = document.getElementById('device'), loading = document.getElementById('loading');
+const shots = document.getElementById('shots'), tabs = document.getElementById('tabs');
+let plat = location.hash === '#mac' ? 'mac' : 'android', listo = false, espera;
+
+function poner(p) {
+  plat = p;
+  for (const b of document.querySelectorAll('.seg button')) b.setAttribute('aria-pressed', String(b.dataset.p === p));
+  device.className = 'device ' + p;
+  try { history.replaceState(null, '', '#' + p); } catch (e) {}
+  if (!shots.hidden) return verCapturas();
+  listo = false;
+  loading.classList.remove('off');
+  app.src = 'app/index.html?' + (p === 'mac' ? 'mac' : 'android') + '#' + p;
+  clearTimeout(espera);
+  // Si la app no llega a dibujarse, se enseñan capturas reales.
+  espera = setTimeout(() => { if (!listo) planB(); }, 25000);
+}
+
+function planB() {
+  app.hidden = true;
+  shots.hidden = false;
+  loading.classList.add('off');
+  document.getElementById('sub').textContent = 'Este visor no deja arrancar la app: estas son capturas reales de la versión de hoy.';
+  verCapturas();
+}
+
+function verCapturas(cual) {
+  const lista = SHOTS[plat];
+  cual = cual || (tabs.dataset.cur && lista.includes(tabs.dataset.cur) ? tabs.dataset.cur : lista[0]);
+  tabs.dataset.cur = cual;
+  shots.innerHTML = lista.map(n => `<img alt="${NOMBRES[n]} (${plat === 'mac' ? 'Mac' : 'Android'})" src="capturas/${plat}-${n}.jpg" class="${n === cual ? 'on' : ''}">`).join('');
+  tabs.hidden = false;
+  tabs.innerHTML = lista.map(n => `<button data-n="${n}" aria-pressed="${n === cual}">${NOMBRES[n]}</button>`).join('');
+}
+
+tabs.addEventListener('click', e => { const b = e.target.closest('button'); if (b) verCapturas(b.dataset.n); });
+document.querySelector('.seg').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.p !== plat) poner(b.dataset.p); });
+addEventListener('message', e => {
+  if (e.data === 'hangar-listo') { listo = true; clearTimeout(espera); setTimeout(() => loading.classList.add('off'), 600); }
+});
+addEventListener('hashchange', () => { const p = location.hash === '#mac' ? 'mac' : 'android'; if (p !== plat) poner(p); });
+
+fetch('demo.json').then(r => r.json()).then(m => {
+  Object.assign(SHOTS, m.capturas || {});
+  const s = document.getElementById('stamp');
+  s.innerHTML = `<span>Versión del ${m.fecha}</span><span>${m.android} juegos en Android · ${m.mac} en Mac</span><span>Commit ${m.commit}</span>`;
+}).catch(() => {});
+
+poner(plat);
+</script>
