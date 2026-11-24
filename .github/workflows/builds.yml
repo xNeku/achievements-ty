@@ -26,6 +26,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Comprobar la configuración
+        env:
+          RA_API_KEY: ${{ secrets.RA_API_KEY }}
+          HANGAR_SERVER: ${{ vars.HANGAR_SERVER }}
+        run: |
+          echo "Secreto RA_API_KEY: $([ -n "$RA_API_KEY" ] && echo "puesto (${#RA_API_KEY} caracteres)" || echo 'NO está')"
+          echo "Variable HANGAR_SERVER: ${HANGAR_SERVER:-NO está}"
+
       - name: Revisar los ports en GitHub
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
