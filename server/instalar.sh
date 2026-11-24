@@ -93,7 +93,18 @@ if ! command -v caddy >/dev/null; then
   dnf -y -q copr enable @caddy/caddy >/dev/null
   dnf -y -q install caddy >/dev/null
 fi
-curl -fsSL "$RAW/Caddyfile.tmpl" | sed "s/{{HOST}}/$HOST/" > /etc/caddy/Caddyfile
+# Si otro programa (p. ej. SSH) ya usa el 443, HTTPS va por el 8443. El certificado se saca por el 80.
+OCUPA_443="$(ss -ltnpH 2>/dev/null | awk '$4 ~ /:443$/' | grep -v caddy || true)"
+if [ -z "${HTTPS_PORT:-}" ]; then
+  if [ -n "$OCUPA_443" ]; then HTTPS_PORT=8443; else HTTPS_PORT=443; fi
+fi
+if [ "$HTTPS_PORT" = 443 ]; then
+  SITE="$HOST"; GLOBAL=""; URL="https://$HOST"
+else
+  echo "El puerto 443 lo usa otro programa ($(echo "$OCUPA_443" | grep -o 'users:(("[^"]*' | head -1 | cut -d'"' -f2)): Hangar irá por el $HTTPS_PORT."
+  SITE="$HOST:$HTTPS_PORT"; GLOBAL="{\n\thttps_port $HTTPS_PORT\n}"; URL="https://$HOST:$HTTPS_PORT"
+fi
+curl -fsSL "$RAW/Caddyfile.tmpl" | sed "s|{{SITE}}|$SITE|; s|{{GLOBAL}}|$GLOBAL|" > /etc/caddy/Caddyfile
 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1
 # En contenedores (OpenVZ/LXC) systemd no puede aislar a Caddy como hace por defecto: se lo quitamos.
 if systemd-detect-virt -cq 2>/dev/null; then
@@ -109,10 +120,10 @@ ProtectKernelModules=false
 ProtectControlGroups=false
 CONF
 fi
-# ¿Hay otro servidor web ocupando los puertos 80/443?
-OCUPADOS="$(ss -ltnpH 2>/dev/null | awk '$4 ~ /:(80|443)$/' | grep -v caddy || true)"
+# ¿Hay otro servidor web ocupando los puertos que necesita Caddy?
+OCUPADOS="$(ss -ltnpH 2>/dev/null | awk -v p=":$HTTPS_PORT\$" '$4 ~ /:80$/ || $4 ~ p' | grep -v caddy || true)"
 if [ -n "$OCUPADOS" ]; then
-  echo "Aviso: algo más está usando los puertos 80/443 y Caddy no podrá arrancar:"
+  echo "Aviso: algo más está usando el puerto 80 o el $HTTPS_PORT y Caddy no podrá arrancar:"
   echo "$OCUPADOS"
   echo "Si es Apache o nginx y no lo usas: systemctl disable --now httpd nginx"
 fi
@@ -124,7 +135,7 @@ if command -v getenforce >/dev/null && [ "$(getenforce)" != "Disabled" ]; then
   restorecon -R "$DIR/logros" || true
 fi
 if systemctl is-active --quiet firewalld; then
-  firewall-cmd -q --permanent --add-service=http --add-service=https
+  firewall-cmd -q --permanent --add-service=http --add-service=https --add-port="$HTTPS_PORT/tcp"
   firewall-cmd -q --reload
 fi
 
@@ -140,9 +151,9 @@ if ! systemctl is-active --quiet caddy.service; then
   journalctl -u caddy.service -n 25 --no-pager || true
 fi
 paso "Listo"
-echo "Servidor:          https://$HOST"
-echo "Panel de admin:    https://$HOST/_/"
-echo "Logros:            https://$HOST/logros/logros.db  (se actualiza cada noche)"
+echo "Servidor:          $URL"
+echo "Panel de admin:    $URL/_/"
+echo "Logros:            $URL/logros/logros.db  (se actualiza cada noche)"
 if [ -n "$NUEVA_CLAVE" ]; then
   echo
   echo "Cuenta del panel:  $ADMIN_EMAIL"
@@ -150,5 +161,6 @@ if [ -n "$NUEVA_CLAVE" ]; then
   echo "Guárdala: no se vuelve a mostrar. Puedes cambiarla en el panel."
 fi
 echo
-echo "Si la web no abre en un par de minutos, abre los puertos 80 y 443 en el panel de Raiola (cortafuegos externo)."
+echo "Si la web no abre en un par de minutos, abre los puertos 80 y $HTTPS_PORT en el panel de Raiola (cortafuegos externo)."
+echo "En GitHub, la variable HANGAR_SERVER tiene que ser: $URL"
 systemctl --no-pager --lines=0 status hangar.service caddy.service | grep -E 'Active:|●' || true
