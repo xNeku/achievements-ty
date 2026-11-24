@@ -354,7 +354,7 @@ class _AjustesScreenState extends State<AjustesScreen> {
             style: T.sans(size: 13, color: C.ink3, height: 1.5),
           ),
           const SizedBox(height: 10),
-          Text('Hangar 0.3 · Arte de SteamGridDB', style: T.sans(size: 12, color: C.ink3)),
+          Text('Hangar 0.4 · Arte de SteamGridDB', style: T.sans(size: 12, color: C.ink3)),
         ],
       );
     },
