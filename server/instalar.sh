@@ -7,6 +7,7 @@
 # <ip-con-guiones>.sslip.io, que no necesita dominio), ADMIN_EMAIL y ADMIN_PASS (cuenta del panel).
 # Se puede ejecutar las veces que haga falta: solo cambia lo que falte o lo que haya cambiado.
 set -euo pipefail
+trap 'echo; echo "ERROR en la línea $LINENO: $BASH_COMMAND"; echo "Mándale a Claude esta salida."' ERR
 
 RAMA="${RAMA:-main}"
 REPO="xNeku/achievements-ty"
@@ -26,12 +27,15 @@ paso "Paquetes del sistema"
 dnf -y -q install curl unzip tar dnf-plugins-core policycoreutils-python-utils >/dev/null
 
 paso "Memoria de intercambio (1 GB) para que 2 GB de RAM vayan holgados"
-if ! swapon --show | grep -q .; then
-  fallocate -l 1G /swapfile && chmod 600 /swapfile && mkswap -q /swapfile && swapon /swapfile
-  grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
-  echo "Swap activado."
+if swapon --show | grep -q .; then
+  echo "Ya hay swap activo."
 else
-  echo "Ya había swap."
+  [ -f /swapfile ] || fallocate -l 1G /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile >/dev/null
+  swapon /swapfile
+  grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  echo "Swap activado: $(swapon --show --noheadings | awk '{print $1, $3}')"
 fi
 
 paso "Usuario y carpetas"
@@ -57,17 +61,22 @@ done
 chown -R hangar:hangar "$DIR"
 chmod 755 "$DIR" "$DIR/logros"
 
-paso "Cuenta de administración del panel"
+paso "Base de datos y cuenta de administración del panel"
+pb() { (cd "$DIR" && runuser -u hangar -- "$DIR/pocketbase" "$@" --dir="$DIR/pb_data" --migrationsDir="$DIR/pb_migrations"); }
+systemctl stop hangar.service 2>/dev/null || true
+pb migrate up
 NUEVA_CLAVE=""
-if [ ! -f "$DIR/pb_data/data.db" ]; then
+if [ ! -f "$DIR/.admin-creado" ]; then
   ADMIN_EMAIL="${ADMIN_EMAIL:-admin@hangar.app}"
-  ADMIN_PASS="${ADMIN_PASS:-$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20)}"
-  sudo -u hangar "$DIR/pocketbase" migrate up --dir="$DIR/pb_data" --migrationsDir="$DIR/pb_migrations" >/dev/null
-  sudo -u hangar "$DIR/pocketbase" admin create "$ADMIN_EMAIL" "$ADMIN_PASS" --dir="$DIR/pb_data"
+  ADMIN_PASS="${ADMIN_PASS:-$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20 || true)}"
+  # Si quedó una cuenta de un intento anterior, se le pone la contraseña nueva.
+  pb admin create "$ADMIN_EMAIL" "$ADMIN_PASS" 2>/dev/null || pb admin update "$ADMIN_EMAIL" "$ADMIN_PASS"
+  touch "$DIR/.admin-creado"
   NUEVA_CLAVE="$ADMIN_PASS"
 else
-  echo "Ya existe (no se toca)."
+  echo "Ya estaba creada (no se toca). Para cambiarla: sudo runuser -u hangar -- $DIR/pocketbase admin update admin@hangar.app NUEVA --dir=$DIR/pb_data"
 fi
+chown -R hangar:hangar "$DIR"
 
 paso "Caddy (HTTPS automático)"
 if ! command -v caddy >/dev/null; then
