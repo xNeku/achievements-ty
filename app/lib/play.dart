@@ -1,7 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'comunidad.dart';
 import 'data.dart';
+import 'imagenes.dart';
 import 'installer.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -124,6 +126,22 @@ Future<void> showPlaySheet(BuildContext context, Juego g, Installer ins) => show
                 ),
                 const SizedBox(height: 24),
                 for (final r in g.repos) ...[_RepoRow(r: r, ins: ins), const SizedBox(height: 14)],
+                const SizedBox(height: 10),
+                Text('¿ALGO NO VA BIEN?', style: T.label(size: 11, color: C.ink3)),
+                const SizedBox(height: 6),
+                Wrap(spacing: 4, runSpacing: 4, children: [
+                  if (ins.principal(g) case final r?)
+                    TextButton.icon(
+                      onPressed: () => informarFallo(r),
+                      icon: const Icon(Icons.bug_report_outlined, size: 16, color: C.ink2),
+                      label: Text('INFORMAR DE UN FALLO', style: T.label(size: 11, color: C.ink2, w: FontWeight.w600)),
+                    ),
+                  TextButton.icon(
+                    onPressed: () => elegirImagenes(context, g),
+                    icon: const Icon(Icons.image_outlined, size: 16, color: C.ink2),
+                    label: Text('CAMBIAR IMÁGENES', style: T.label(size: 11, color: C.ink2, w: FontWeight.w600)),
+                  ),
+                ]),
               ],
             ),
           ),

@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'comunidad.dart';
 import 'data.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -120,6 +121,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       _menu('Tipo', _tipo ?? '', {'': 'Todos', ...tipoLabel}, (v) => _tipo = v.isEmpty ? null : v),
                       const SizedBox(width: 12),
                       _menu('Orden', _orden, const {'arte': 'Con portada primero', 'az': 'Nombre A–Z', 'za': 'Nombre Z–A'}, (v) => _orden = v),
+                      const SizedBox(width: 12),
+                      Tooltip(
+                        message: '¿Falta un port? Propónlo',
+                        child: SizedBox.square(
+                          dimension: 46,
+                          child: IconButton.outlined(
+                            onPressed: () => proponerPort(nombre: _q.text.trim()),
+                            style: IconButton.styleFrom(side: const BorderSide(color: C.line)),
+                            icon: const Icon(Icons.add_rounded, color: C.ink2),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -426,6 +439,15 @@ class _Empty extends StatelessWidget {
           q.isEmpty ? 'Esta colección está vacía.' : 'Ningún juego coincide con «$q». Prueba con otra palabra o quita algún filtro.',
           style: T.sans(size: 15, color: C.ink2),
         ),
+        if (q.isNotEmpty) ...[
+          const SizedBox(height: 22),
+          FilledButton.icon(
+            onPressed: () => proponerPort(nombre: q),
+            style: FilledButton.styleFrom(backgroundColor: C.acc, padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16)),
+            icon: const Icon(Icons.add_rounded, color: Colors.white),
+            label: Text('¿Existe un port de «$q»? Propónlo', style: T.sans(size: 14, w: FontWeight.w600, color: Colors.white)),
+          ),
+        ],
       ],
     ),
   );

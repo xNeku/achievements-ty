@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'amigos.dart';
+import 'bigpicture.dart';
 import 'cuenta.dart';
 import 'data.dart';
 import 'home.dart';
@@ -13,6 +14,7 @@ import 'installer.dart';
 import 'library.dart';
 import 'logros.dart';
 import 'pages.dart';
+import 'perfil.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -25,7 +27,7 @@ Future<void> main() async {
   final mac = kIsWeb ? Uri.base.queryParameters.containsKey('mac') : Platform.isMacOS;
   catalogoMac = mac;
   final store = CatalogStore(mac ? 'juegos-mac.json' : 'juegos.json'), ajustes = Ajustes(), installer = Installer(), perfil = Perfil(), cuenta = Cuenta();
-  await Future.wait([store.init(), ajustes.init(), installer.init(), perfil.init(), cuenta.init()]);
+  await Future.wait([store.init(), ajustes.init(), installer.init(), perfil.init(), cuenta.init(), arteElegido.init()]);
   runApp(HangarApp(store: store, ajustes: ajustes, installer: installer, perfil: perfil, cuenta: cuenta));
 }
 
@@ -49,7 +51,7 @@ class HangarApp extends StatelessWidget {
 /// Juegos que salen primero en el selector, si están en el catálogo.
 const _portada = ['dark souls remastered', 'nier', 'majora', 'god of war iii', 'persona 5 royal', 'celeste', 'super mario galaxy', 'doom'];
 
-enum Tab { juegos, biblioteca, logros, amigos, ajustes }
+enum Tab { juegos, biblioteca, logros, amigos, ajustes, perfil }
 
 class Shell extends StatefulWidget {
   final CatalogStore store;
@@ -77,7 +79,10 @@ class _ShellState extends State<Shell> {
     _life;
     widget.installer.addListener(_revisarLogros);
     widget.perfil.addListener(_revisarLogros);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _revisarLogros());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _revisarLogros();
+      if (widget.ajustes.empezarBig) _abrirBig();
+    });
   }
 
   /// Avisa cuando se gana un logro de Hangar.
@@ -123,11 +128,27 @@ class _ShellState extends State<Shell> {
     setState(() {});
   }
 
-  /// Mando: L1/R1 cambian de sección y B vuelve a Juegos.
+  bool _enBig = false;
+
+  /// Modo Big Picture, a pantalla completa para la tele.
+  Future<void> _abrirBig() async {
+    if (_enBig) return;
+    _enBig = true;
+    final all = widget.store.catalogo.juegos;
+    _selector(all);
+    await abrirBigPicture(context, juegos: all, destacados: _destacados, installer: widget.installer);
+    _enBig = false;
+  }
+
+  /// Mando: L1/R1 cambian de sección, B vuelve a Juegos y Start abre Big Picture.
   KeyEventResult _onKey(FocusNode _, KeyEvent e) {
     if (e is! KeyDownEvent) return KeyEventResult.ignored;
     final k = e.logicalKey;
     final tabs = Tab.values;
+    if (k == LogicalKeyboardKey.gameButtonStart || k == LogicalKeyboardKey.gameButtonMode || k == LogicalKeyboardKey.f11) {
+      _abrirBig();
+      return KeyEventResult.handled;
+    }
     if (k == LogicalKeyboardKey.gameButtonLeft1 || k == LogicalKeyboardKey.gameButtonRight1) {
       final i = (_tab.index + (k == LogicalKeyboardKey.gameButtonRight1 ? 1 : -1) + tabs.length) % tabs.length;
       setState(() => _tab = tabs[i]);
@@ -201,7 +222,7 @@ class _ShellState extends State<Shell> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([widget.store, widget.ajustes, widget.installer, widget.perfil]),
+    listenable: Listenable.merge([widget.store, widget.ajustes, widget.installer, widget.perfil, arteElegido]),
     builder: (context, _) {
       final all = widget.store.catalogo.juegos;
       final sel = _selector(all);
@@ -274,6 +295,19 @@ class _ShellState extends State<Shell> {
                                 installer: widget.installer,
                                 cuenta: widget.cuenta,
                               ),
+                              PerfilScreen(
+                                perfil: widget.perfil,
+                                installer: widget.installer,
+                                cuenta: widget.cuenta,
+                                juegos: all,
+                                onPick: _pick,
+                                onAmigos: () {
+                                  widget.cuenta.cargarAmigos();
+                                  setState(() => _tab = Tab.amigos);
+                                },
+                                onAjustes: () => setState(() => _tab = Tab.ajustes),
+                                onLogros: () => setState(() => _tab = Tab.logros),
+                              ),
                             ])
                               Padding(
                                 padding: EdgeInsets.only(left: railW),
@@ -291,6 +325,7 @@ class _ShellState extends State<Shell> {
                           tab: _tab,
                           compact: compact,
                           letra: widget.perfil.inicial,
+                          onBig: _abrirBig,
                           onTab: (t) {
                             if (t == Tab.amigos) widget.cuenta.cargarAmigos();
                             setState(() => _tab = t);
@@ -314,8 +349,9 @@ class _Rail extends StatelessWidget {
   final Tab tab;
   final bool compact;
   final ValueChanged<Tab> onTab;
+  final VoidCallback onBig;
   final String letra;
-  const _Rail({required this.tab, required this.compact, required this.letra, required this.onTab});
+  const _Rail({required this.tab, required this.compact, required this.letra, required this.onTab, required this.onBig});
 
   @override
   Widget build(BuildContext context) {
@@ -370,7 +406,22 @@ class _Rail extends StatelessWidget {
           ),
           child: Column(
             children: [
-              Avatar(letter: letra, size: compact ? 38 : 52),
+              Tooltip(
+                message: 'Tu perfil',
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => onTab(Tab.perfil),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: tab == Tab.perfil ? C.acc : Colors.transparent, width: 2),
+                    ),
+                    child: Avatar(letter: letra, size: compact ? 34 : 48),
+                  ),
+                ),
+              ),
               const Spacer(),
               b(Tab.juegos, Icons.sports_esports_outlined, Icons.sports_esports, 'Juegos'),
               gap,
@@ -382,6 +433,23 @@ class _Rail extends StatelessWidget {
               const Spacer(),
               Container(width: compact ? 40 : 56, height: 1, color: C.line),
               SizedBox(height: compact ? 8 : 18),
+              Tooltip(
+                message: 'Big Picture (Start)',
+                preferBelow: false,
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: onBig,
+                    child: SizedBox.square(
+                      dimension: compact ? 42 : 52,
+                      child: Icon(Icons.tv_rounded, color: C.ink3, size: compact ? 21 : 24, semanticLabel: 'Big Picture'),
+                    ),
+                  ),
+                ),
+              ),
+              gap,
               b(Tab.ajustes, Icons.settings_outlined, Icons.settings, 'Ajustes'),
             ],
           ),

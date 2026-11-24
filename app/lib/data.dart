@@ -126,6 +126,40 @@ class Arte {
       Arte(portada: j['portada'], portadaThumb: j['portada_thumb'], hero: j['hero'], heroThumb: j['hero_thumb'], logo: j['logo'], logoThumb: j['logo_thumb']);
 }
 
+/// Una imagen alternativa para un juego (de SteamGridDB o propuesta por la comunidad).
+class Alternativa {
+  final String url, thumb;
+  const Alternativa(this.url, this.thumb);
+}
+
+/// Las imágenes que cada uno elige para sus juegos (se guardan solo en este dispositivo).
+class ArteElegido extends ChangeNotifier {
+  Map<String, Map<String, String>> _m = {};
+  SharedPreferences? _p;
+
+  Future<void> init() async {
+    _p = await SharedPreferences.getInstance();
+    try {
+      _m = {
+        for (final e in (jsonDecode(_p!.getString('arte_elegido') ?? '{}') as Map).entries)
+          '${e.key}': Map<String, String>.from(e.value as Map),
+      };
+    } catch (_) {}
+  }
+
+  String? de(String juego, String tipo) => _m[juego]?[tipo];
+
+  void elegir(String juego, String tipo, String? url) {
+    final m = _m.putIfAbsent(juego, () => {});
+    url == null ? m.remove(tipo) : m[tipo] = url;
+    if (m.isEmpty) _m.remove(juego);
+    _p?.setString('arte_elegido', jsonEncode(_m));
+    notifyListeners();
+  }
+}
+
+final arteElegido = ArteElegido();
+
 class Juego {
   final String id, nombre, confianza, descripcion;
   final int orden;
@@ -135,6 +169,9 @@ class Juego {
   final List<String> proyectos, tipos, notas;
   final List<Repo> repos;
   final Arte? arte;
+
+  /// Otras imágenes para elegir: 'portada', 'hero' y 'logo'.
+  final Map<String, List<Alternativa>> arteAlt;
   const Juego({
     required this.id,
     required this.nombre,
@@ -147,6 +184,7 @@ class Juego {
     required this.notas,
     required this.repos,
     this.arte,
+    this.arteAlt = const {},
   });
 
   factory Juego.fromJson(Map<String, dynamic> j) {
@@ -179,14 +217,37 @@ class Juego {
           )
           .toList(),
       arte: j['arte'] is Map<String, dynamic> ? Arte.fromJson(j['arte']) : null,
+      arteAlt: {
+        if (j['arte_alt'] is Map)
+          for (final e in (j['arte_alt'] as Map).entries)
+            '${e.key}': [
+              for (final a in (e.value as List? ?? const []))
+                if (a is Map && a['url'] is String) Alternativa(a['url'], '${a['thumb'] ?? a['url']}'),
+            ],
+      },
     );
   }
 
-  String? get cover => arte?.portadaThumb ?? arte?.portada;
-  String? get coverFull => arte?.portada ?? arte?.portadaThumb;
-  String? get hero => arte?.hero ?? arte?.heroThumb;
-  String? get heroSmall => arte?.heroThumb ?? arte?.hero;
-  String? get logo => arte?.logo ?? arte?.logoThumb;
+  // Lo que hayas elegido tú manda sobre lo del catálogo.
+  String? get cover => arteElegido.de(id, 'portada') ?? arte?.portadaThumb ?? arte?.portada;
+  String? get coverFull => arteElegido.de(id, 'portada') ?? arte?.portada ?? arte?.portadaThumb;
+  String? get hero => arteElegido.de(id, 'hero') ?? arte?.hero ?? arte?.heroThumb;
+  String? get heroSmall => arteElegido.de(id, 'hero') ?? arte?.heroThumb ?? arte?.hero;
+  String? get logo => arteElegido.de(id, 'logo') ?? arte?.logo ?? arte?.logoThumb;
+
+  /// Todas las opciones de un tipo de imagen: la del catálogo primero y después las alternativas.
+  List<Alternativa> opciones(String tipo) {
+    final base = switch (tipo) {
+      'portada' => arte?.portada == null ? null : Alternativa(arte!.portada!, arte!.portadaThumb ?? arte!.portada!),
+      'hero' => arte?.hero == null ? null : Alternativa(arte!.hero!, arte!.heroThumb ?? arte!.hero!),
+      _ => arte?.logo == null ? null : Alternativa(arte!.logo!, arte!.logoThumb ?? arte!.logo!),
+    };
+    final out = <Alternativa>[?base];
+    for (final a in arteAlt[tipo] ?? const <Alternativa>[]) {
+      if (!out.any((o) => o.url == a.url)) out.add(a);
+    }
+    return out;
+  }
   bool get hasHero => hero != null;
 
   /// Algún port se puede instalar en este dispositivo.
@@ -288,18 +349,20 @@ class CatalogStore extends ChangeNotifier {
 
 /// Ajustes sencillos guardados en el dispositivo.
 class Ajustes extends ChangeNotifier {
-  bool vibracion = true, chispas = true;
+  bool vibracion = true, chispas = true, empezarBig = false;
   SharedPreferences? _p;
 
   Future<void> init() async {
     _p = await SharedPreferences.getInstance();
     vibracion = _p!.getBool('vib') ?? true;
     chispas = _p!.getBool('fx') ?? true;
+    empezarBig = _p!.getBool('big') ?? false;
     notifyListeners();
   }
 
-  void set({bool? vib, bool? fx}) {
+  void set({bool? vib, bool? fx, bool? big}) {
     if (vib != null) _p?.setBool('vib', vibracion = vib);
+    if (big != null) _p?.setBool('big', empezarBig = big);
     if (fx != null) _p?.setBool('fx', chispas = fx);
     notifyListeners();
   }

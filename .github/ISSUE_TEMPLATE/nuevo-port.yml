@@ -1,0 +1,78 @@
+name: Proponer un port
+description: Añade a Hangar un decomp, recomp o port que todavía no esté.
+title: "[Port] "
+labels: [propuesta-port]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por ayudar a que Hangar crezca. Un bot revisará el repositorio en un minuto y te dirá si encuentra
+        las descargas. Cuando alguien del equipo lo apruebe, aparecerá en la app sin tener que actualizarla.
+  - type: input
+    id: nombre
+    attributes:
+      label: Nombre del juego
+      placeholder: "The Legend of Zelda: Majora's Mask"
+    validations:
+      required: true
+  - type: input
+    id: repo
+    attributes:
+      label: Repositorio en GitHub
+      placeholder: https://github.com/usuario/proyecto
+    validations:
+      required: true
+  - type: dropdown
+    id: plataforma
+    attributes:
+      label: Plataforma
+      options:
+        - Android
+        - Mac
+        - Android y Mac
+    validations:
+      required: true
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: Tipo de proyecto
+      options:
+        - Decomp
+        - Recomp
+        - Source port
+        - Otro
+    validations:
+      required: true
+  - type: textarea
+    id: requisitos
+    attributes:
+      label: Qué hace falta para jugar
+      description: Por ejemplo, la ROM o los archivos del juego original que tiene que poner cada uno.
+      placeholder: Tu copia de la ROM de N64 (versión USA, formato .z64)
+  - type: input
+    id: archivo_mac
+    attributes:
+      label: Archivo de la descarga para Mac (opcional)
+      description: El nombre del archivo en las releases. Puedes usar * para la parte que cambia con cada versión. Si lo dejas vacío, el bot intenta adivinarlo.
+      placeholder: Proyecto-*-macOS.zip
+  - type: input
+    id: portada
+    attributes:
+      label: Portada (opcional)
+      description: Enlace a una imagen vertical (formato caja). Lo ideal es de SteamGridDB.
+  - type: input
+    id: hero
+    attributes:
+      label: Imagen grande de fondo (opcional)
+      description: Enlace a una imagen horizontal y ancha, sin texto.
+  - type: textarea
+    id: notas
+    attributes:
+      label: Algo más
+  - type: checkboxes
+    id: legal
+    attributes:
+      label: Comprobación
+      options:
+        - label: El repositorio no incluye el juego (ni ROMs ni archivos con copyright); cada uno pone su copia.
+          required: true

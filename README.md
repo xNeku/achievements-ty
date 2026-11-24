@@ -55,6 +55,27 @@ El script instala todo, crea la cuenta del panel (te enseña la contraseña una 
 
 Para que las apps lo usen sin escribirlo a mano, guarda la dirección en GitHub como variable del repo `HANGAR_SERVER` (Settings → Secrets and variables → Actions → Variables). También se puede escribir en Ajustes → Cuenta de Hangar.
 
+## La comunidad añade ports e imágenes
+
+- **Proponer un port**: botón `+` de la biblioteca (o «Proponer un port» en Ajustes). Abre el formulario
+  `.github/ISSUE_TEMPLATE/nuevo-port.yml`. Un bot (`.github/workflows/propuestas.yml` + `tools/propuestas.py`)
+  revisa el repositorio, busca el APK o la descarga de Mac y comenta lo que ve.
+- **Aprobar**: alguien con permiso en el repo le pone la etiqueta `aprobado`. El bot lo añade a
+  `data/juegos.json` / `data/juegos-mac.json`, lo revisa, cierra la issue y lanza la build. La app lo
+  ve al momento (lee el catálogo de `main`), sin actualizarse.
+- **Imágenes**: cada juego trae alternativas de SteamGridDB (`tools/arte/steamgriddb.py`, secreto
+  `SGDB_API_KEY`). En la app, «Cambiar imágenes» en el panel de versiones deja elegir portada, fondo y
+  logo (se guarda en el dispositivo). Si ninguna convence, «Proponer otra» abre `mejorar-imagenes.yml`,
+  que sigue el mismo camino de aprobación y cambia la imagen para todos.
+
+Las issues solo disparan workflows de la rama principal: esto funciona cuando está en `main`.
+
+## Modo Big Picture
+
+Pantalla completa para la tele y el mando: botón de la tele en la barra, o Start en el mando.
+Filas de Seguir jugando, Listos para jugar y Destacados. A juega, Y abre las versiones, B sale.
+En Ajustes se puede hacer que Hangar arranque directamente así.
+
 ## Lo que hace distinto a Hangar
 
 - Android y Mac, en horizontal y con mando (cruceta, A, B, L1 y R1).

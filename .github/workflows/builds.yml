@@ -29,15 +29,23 @@ jobs:
       - name: Comprobar la configuración
         env:
           RA_API_KEY: ${{ secrets.RA_API_KEY }}
+          SGDB_API_KEY: ${{ secrets.SGDB_API_KEY }}
           HANGAR_SERVER: ${{ vars.HANGAR_SERVER }}
         run: |
           echo "Secreto RA_API_KEY: $([ -n "$RA_API_KEY" ] && echo "puesto (${#RA_API_KEY} caracteres)" || echo 'NO está')"
+          echo "Secreto SGDB_API_KEY: $([ -n "$SGDB_API_KEY" ] && echo "puesto (${#SGDB_API_KEY} caracteres)" || echo 'NO está')"
           echo "Variable HANGAR_SERVER: ${HANGAR_SERVER:-NO está}"
 
       - name: Revisar los ports en GitHub
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 tools/revisar_catalogo.py data/juegos.json data/juegos-mac.json
+
+      # Portadas, fondos y logos alternativos (los más votados de SteamGridDB) para elegir en la app.
+      - name: Imágenes de SteamGridDB
+        env:
+          SGDB_API_KEY: ${{ secrets.SGDB_API_KEY }}
+        run: python3 tools/arte/steamgriddb.py data/juegos.json data/juegos-mac.json --max 400
 
       # Base de datos de logros: volcado de Xbox 360 / One y, si hay clave, RetroAchievements.
       - name: Fuentes de logros
@@ -67,7 +75,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/*.json data/logros
+          git add data/*.json data/logros data/arte 2>/dev/null || git add data/*.json data/logros
           git diff --cached --quiet && exit 0
           git commit -m "Catálogo revisado en GitHub"
           # Si mientras tanto alguien ha subido algo, nos ponemos al día y lo intentamos otra vez.

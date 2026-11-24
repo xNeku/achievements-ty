@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'amigos.dart';
+import 'comunidad.dart';
 import 'cuenta.dart';
 import 'data.dart';
 import 'installer.dart';
@@ -330,6 +331,14 @@ class _AjustesScreenState extends State<AjustesScreen> {
               ),
             ),
           ),
+          row(
+            'Comunidad',
+            '¿Falta un port o un juego tiene imágenes feas? Propónlo en GitHub; cuando se aprueba, sale en Hangar sin actualizar la app.',
+            TextButton(
+              onPressed: proponerPort,
+              child: Text('PROPONER UN PORT', style: T.label(size: 12, color: C.ink, w: FontWeight.w600)),
+            ),
+          ),
           if (ins.esAndroid)
             row(
               'Contar tiempo de juego',
@@ -348,13 +357,14 @@ class _AjustesScreenState extends State<AjustesScreen> {
             ),
           toggle('Vibración', 'Un toque corto al cambiar de juego.', ajustes.vibracion, (v) => ajustes.set(vib: v)),
           toggle('Chispas de fondo', 'Las chispas que suben detrás del juego.', ajustes.chispas, (v) => ajustes.set(fx: v)),
+          toggle('Empezar en Big Picture', 'Hangar se abre directamente en el modo tele, para jugar con mando.', ajustes.empezarBig, (v) => ajustes.set(big: v)),
           const SizedBox(height: 14),
           Text(
-            'Mando: cruceta o stick para moverte, A para aceptar, B para volver, L1 y R1 para cambiar de sección.',
+            'Mando: cruceta o stick para moverte, A para aceptar, B para volver, L1 y R1 para cambiar de sección, Start para el modo Big Picture.',
             style: T.sans(size: 13, color: C.ink3, height: 1.5),
           ),
           const SizedBox(height: 10),
-          Text('Hangar 0.4 · Arte de SteamGridDB', style: T.sans(size: 12, color: C.ink3)),
+          Text('Hangar 0.5 · Arte de SteamGridDB', style: T.sans(size: 12, color: C.ink3)),
         ],
       );
     },
