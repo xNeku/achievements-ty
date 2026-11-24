@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -32,11 +33,11 @@ class HangarApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'Hangar',
-        debugShowCheckedModeBanner: false,
-        theme: buildTheme(),
-        home: Shell(store: store, ajustes: ajustes, installer: installer),
-      );
+    title: 'Hangar',
+    debugShowCheckedModeBanner: false,
+    theme: buildTheme(),
+    home: Shell(store: store, ajustes: ajustes, installer: installer),
+  );
 }
 
 /// Juegos que salen primero en el selector, si están en el catálogo.
@@ -120,60 +121,82 @@ class _ShellState extends State<Shell> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-        listenable: Listenable.merge([widget.store, widget.ajustes, widget.installer]),
-        builder: (context, _) {
-          final all = widget.store.catalogo.juegos;
-          final sel = _selector(all);
-          if (_index >= sel.length) _index = 0;
-          final byId = {for (final j in all) j.id: j};
-          return Scaffold(
-            body: LayoutBuilder(builder: (context, box) {
-              final compact = box.maxHeight < 560;
-              final gap = compact ? 8.0 : 14.0;
-              return Padding(
-                padding: EdgeInsets.all(gap),
-                child: Container(
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    color: C.card,
-                    borderRadius: BorderRadius.circular(compact ? 20 : 30),
-                    border: Border.all(color: const Color(0x0FFFFFFF)),
-                    boxShadow: const [BoxShadow(color: Color(0xA6000000), blurRadius: 80, offset: Offset(0, 30))],
-                  ),
-                  child: Row(children: [
-                    _Rail(tab: _tab, compact: compact, onTab: (t) => setState(() => _tab = t)),
-                    Expanded(
-                      child: IndexedStack(index: _tab.index, children: [
-                        HomeScreen(
-                          juegos: sel,
-                          installer: widget.installer,
-                          index: _index,
-                          onIndex: (i) => setState(() => _index = i),
-                          active: _tab == Tab.juegos,
-                          chispas: widget.ajustes.chispas,
-                          vibracion: widget.ajustes.vibracion,
-                          onLibrary: () => setState(() => _tab = Tab.biblioteca),
-                          onSearch: _search,
-                        ),
-                        LibraryScreen(
-                          juegos: all,
-                          destacados: {for (final j in _destacados) j.id},
-                          recientes: _recientes,
-                          searchFocus: _searchFocus,
-                          onPick: _pick,
-                        ),
-                        LogrosScreen(recientes: _recientes.map((id) => byId[id]).whereType<Juego>().toList(), onPick: _pick),
-                        const AmigosScreen(),
-                        AjustesScreen(store: widget.store, ajustes: widget.ajustes),
-                      ]),
-                    ),
-                  ]),
+    listenable: Listenable.merge([widget.store, widget.ajustes, widget.installer]),
+    builder: (context, _) {
+      final all = widget.store.catalogo.juegos;
+      final sel = _selector(all);
+      if (_index >= sel.length) _index = 0;
+      final byId = {for (final j in all) j.id: j};
+      return Scaffold(
+        body: LayoutBuilder(
+          builder: (context, box) {
+            final compact = box.maxHeight < 560;
+            final gap = compact ? 8.0 : 14.0;
+            final railW = compact ? 64.0 : 92.0;
+            return Padding(
+              padding: EdgeInsets.all(gap),
+              child: Container(
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: C.card,
+                  borderRadius: BorderRadius.circular(compact ? 20 : 30),
+                  border: Border.all(color: const Color(0x0FFFFFFF)),
+                  boxShadow: const [BoxShadow(color: Color(0xA6000000), blurRadius: 80, offset: Offset(0, 30))],
                 ),
-              );
-            }),
-          );
-        },
+                // El arte del juego llega hasta el borde; la barra flota encima como cristal.
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: IndexedStack(
+                        index: _tab.index,
+                        children: [
+                          HomeScreen(
+                            inset: railW,
+                            juegos: sel,
+                            installer: widget.installer,
+                            index: _index,
+                            onIndex: (i) => setState(() => _index = i),
+                            active: _tab == Tab.juegos,
+                            chispas: widget.ajustes.chispas,
+                            vibracion: widget.ajustes.vibracion,
+                            onLibrary: () => setState(() => _tab = Tab.biblioteca),
+                            onSearch: _search,
+                          ),
+                          for (final page in [
+                            LibraryScreen(
+                              juegos: all,
+                              destacados: {for (final j in _destacados) j.id},
+                              recientes: _recientes,
+                              searchFocus: _searchFocus,
+                              onPick: _pick,
+                            ),
+                            LogrosScreen(recientes: _recientes.map((id) => byId[id]).whereType<Juego>().toList(), onPick: _pick),
+                            const AmigosScreen(),
+                            AjustesScreen(store: widget.store, ajustes: widget.ajustes),
+                          ])
+                            Padding(
+                              padding: EdgeInsets.only(left: railW),
+                              child: page,
+                            ),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: railW,
+                      child: _Rail(tab: _tab, compact: compact, onTab: (t) => setState(() => _tab = t)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
       );
+    },
+  );
 }
 
 /// Barra lateral fija.
@@ -190,50 +213,69 @@ class _Rail extends StatelessWidget {
       return Tooltip(
         message: label,
         preferBelow: false,
-        child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
-          if (cur)
-            Positioned(
-              left: compact ? -11 : -20,
-              top: 12,
-              bottom: 12,
-              child: Container(width: 3, decoration: const BoxDecoration(color: C.acc, borderRadius: BorderRadius.horizontal(right: Radius.circular(3)))),
-            ),
-          Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-            child: InkWell(
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            if (cur)
+              Positioned(
+                left: compact ? -11 : -20,
+                top: 12,
+                bottom: 12,
+                child: Container(
+                  width: 3,
+                  decoration: const BoxDecoration(
+                    color: C.acc,
+                    borderRadius: BorderRadius.horizontal(right: Radius.circular(3)),
+                  ),
+                ),
+              ),
+            Material(
+              color: Colors.transparent,
               borderRadius: BorderRadius.circular(16),
-              onTap: () => onTab(t),
-              child: SizedBox.square(
-                dimension: compact ? 42 : 52,
-                child: Icon(cur ? on : icon, color: cur ? C.ink : C.ink3, size: compact ? 21 : 24, semanticLabel: label),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => onTab(t),
+                child: SizedBox.square(
+                  dimension: compact ? 42 : 52,
+                  child: Icon(cur ? on : icon, color: cur ? C.ink : C.ink3, size: compact ? 21 : 24, semanticLabel: label),
+                ),
               ),
             ),
-          ),
-        ]),
+          ],
+        ),
       );
     }
 
     final gap = SizedBox(height: compact ? 4 : 14);
-    return Container(
-      width: compact ? 64 : 92,
-      padding: EdgeInsets.symmetric(vertical: compact ? 12 : 26),
-      decoration: const BoxDecoration(color: Color(0xCC0E0A0D), border: Border(right: BorderSide(color: C.line))),
-      child: Column(children: [
-        Avatar(size: compact ? 38 : 52),
-        const Spacer(),
-        b(Tab.juegos, Icons.sports_esports_outlined, Icons.sports_esports, 'Juegos'),
-        gap,
-        b(Tab.biblioteca, Icons.grid_view_outlined, Icons.grid_view_rounded, 'Biblioteca'),
-        gap,
-        b(Tab.logros, Icons.emoji_events_outlined, Icons.emoji_events, 'Logros'),
-        gap,
-        b(Tab.amigos, Icons.people_outline_rounded, Icons.people_rounded, 'Amigos'),
-        const Spacer(),
-        Container(width: compact ? 40 : 56, height: 1, color: C.line),
-        SizedBox(height: compact ? 8 : 18),
-        b(Tab.ajustes, Icons.settings_outlined, Icons.settings, 'Ajustes'),
-      ]),
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: compact ? 12 : 26),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(colors: [Color(0xB30E0A0D), Color(0x8C0E0A0D)]),
+            border: Border(right: BorderSide(color: Color(0x12FFFFFF))),
+          ),
+          child: Column(
+            children: [
+              Avatar(size: compact ? 38 : 52),
+              const Spacer(),
+              b(Tab.juegos, Icons.sports_esports_outlined, Icons.sports_esports, 'Juegos'),
+              gap,
+              b(Tab.biblioteca, Icons.grid_view_outlined, Icons.grid_view_rounded, 'Biblioteca'),
+              gap,
+              b(Tab.logros, Icons.emoji_events_outlined, Icons.emoji_events, 'Logros'),
+              gap,
+              b(Tab.amigos, Icons.people_outline_rounded, Icons.people_rounded, 'Amigos'),
+              const Spacer(),
+              Container(width: compact ? 40 : 56, height: 1, color: C.line),
+              SizedBox(height: compact ? 8 : 18),
+              b(Tab.ajustes, Icons.settings_outlined, Icons.settings, 'Ajustes'),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

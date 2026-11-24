@@ -49,6 +49,13 @@ jobs:
           flutter analyze
           flutter test
 
+      # Misma clave de firma en todas las builds: así cada APK nuevo se instala encima del anterior.
+      - name: Clave de firma estable
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: hangar-debug-keystore-v1
+
       - name: Compilar APK
         run: |
           flutter build apk --release
@@ -108,6 +115,6 @@ jobs:
           body: |
             Compilado desde `${{ github.ref_name }}` (${{ github.sha }}).
 
-            **Android** (`hangar.apk`): descárgalo en el dispositivo e instálalo. Si ya tenías otra build, desinstálala antes.
+            **Android** (`hangar.apk`): descárgalo en el dispositivo e instálalo. Las builds nuevas se instalan encima de la anterior (si vienes de la build 3 o anterior, desinstálala una última vez).
 
             **Mac** (`hangar-mac.zip`): descomprímelo y arrastra Hangar a Aplicaciones. La primera vez macOS lo bloquea porque no está firmado por Apple: abre Ajustes del Sistema → Privacidad y seguridad → «Abrir igualmente». O en Terminal: `xattr -dr com.apple.quarantine /Applications/Hangar.app`

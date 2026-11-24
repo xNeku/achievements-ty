@@ -173,13 +173,24 @@ class Installer extends ChangeNotifier {
     if (!apk && m?.file != null && m?.tag != null) {
       return Uri.parse('https://github.com/${r.repo}/releases/download/${Uri.encodeComponent(m!.tag!)}/${Uri.encodeComponent(m.file!)}');
     }
+    // Con tag, esa release. Sin tag, las últimas (incluidas pre-releases, que muchos ports solo publican así).
     final api = m?.tag != null && !apk
         ? 'https://api.github.com/repos/${r.repo}/releases/tags/${Uri.encodeComponent(m!.tag!)}'
-        : 'https://api.github.com/repos/${r.repo}/releases/latest';
+        : 'https://api.github.com/repos/${r.repo}/releases?per_page=10';
     final res = await http.get(Uri.parse(api), headers: {'Accept': 'application/vnd.github+json'}).timeout(const Duration(seconds: 20));
     if (res.statusCode == 403 || res.statusCode == 429) throw InstallError('GitHub ha limitado las consultas. Prueba dentro de un rato.');
     if (res.statusCode != 200) throw InstallError('Este proyecto no tiene ninguna versión publicada en GitHub.');
-    final assets = ((jsonDecode(res.body) as Map)['assets'] as List).cast<Map<String, dynamic>>();
+    final body = jsonDecode(res.body);
+    final releases = (body is List ? body : [body]).cast<Map<String, dynamic>>().where((x) => x['draft'] != true).toList();
+    if (releases.isEmpty) throw InstallError('Este proyecto no tiene ninguna versión publicada en GitHub.');
+    // La primera release que traiga lo que buscamos.
+    final assets = (releases.firstWhere(
+      (rel) => ((rel['assets'] as List?) ?? const []).any((a) => apk
+          ? '${a['name']}'.toLowerCase().endsWith('.apk')
+          : RegExp('^${m!.asset!.split('*').map(RegExp.escape).join('.*')}\$', caseSensitive: false).hasMatch('${a['name']}')),
+      orElse: () => releases.first,
+    )['assets'] as List)
+        .cast<Map<String, dynamic>>();
     Map<String, dynamic>? pick;
     if (apk) {
       final apks = assets.where((a) => '${a['name']}'.toLowerCase().endsWith('.apk')).toList();
@@ -328,7 +339,8 @@ class Installer extends ChangeNotifier {
     _set(r, Fase.preparando);
     final pkg = await _android.invokeMethod<String>('packageOf', apk.path);
     if (pkg == null) throw InstallError('El APK descargado no es válido.');
-    _hechos[r.repo] = Instalado(dir: cache.path, target: apk.path, version: url.pathSegments.length > 1 ? url.pathSegments[url.pathSegments.length - 2] : '', paquete: pkg);
+    final segs = url.pathSegments;
+    _hechos[r.repo] = Instalado(dir: cache.path, target: apk.path, version: segs.length > 2 ? Uri.decodeComponent(segs[segs.length - 2]) : '', paquete: pkg);
     _save();
     final ok = await _android.invokeMethod<bool>('install', apk.path);
     if (ok != true) throw InstallError('Permite a Hangar instalar apps y vuelve a pulsar Instalar.');

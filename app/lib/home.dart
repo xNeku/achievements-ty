@@ -15,6 +15,8 @@ import 'widgets.dart';
 /// Pantalla de juego: arte enorme, logo y JUGAR. Debajo, en una segunda pantalla,
 /// tu partida, los logros y los proyectos de GitHub.
 class HomeScreen extends StatefulWidget {
+  /// Ancho de la barra lateral que flota encima: el arte va por debajo y el texto se aparta.
+  final double inset;
   final List<Juego> juegos;
   final Installer installer;
   final int index;
@@ -23,6 +25,7 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback onLibrary, onSearch;
   const HomeScreen({
     super.key,
+    this.inset = 0,
     required this.juegos,
     required this.installer,
     required this.index,
@@ -172,6 +175,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         ..translateByDouble(0, -h * .07 * t, 0, 1)
                         ..scaleByDouble(1 - .07 * t, 1 - .07 * t, 1, 1),
                       child: _GameScreen(
+                        inset: widget.inset,
                         g: _g,
                         juegos: widget.juegos,
                         index: widget.index,
@@ -204,7 +208,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             }
                             return false;
                           },
-                          child: _RecordScreen(g: _g, installer: widget.installer, controller: _scroll, compact: compact, onUp: () => _setOpen(false)),
+                          child: _RecordScreen(inset: widget.inset, g: _g, installer: widget.installer, controller: _scroll, compact: compact, onUp: () => _setOpen(false)),
                         ),
                       ),
                     ),
@@ -282,7 +286,7 @@ class _HeroArt extends StatelessWidget {
           // Fondo: el arte difuminado y oscurecido
           if (g.heroSmall != null || g.cover != null)
             ImageFiltered(
-              imageFilter: ui.ImageFilter.blur(sigmaX: 36, sigmaY: 36, tileMode: TileMode.clamp),
+              imageFilter: ui.ImageFilter.blur(sigmaX: 36, sigmaY: 36, tileMode: TileMode.mirror),
               child: Opacity(opacity: .55, child: NetImg(g.heroSmall ?? g.cover, cacheWidth: 480)),
             ),
           // Banner nítido arriba, fundido hacia abajo
@@ -331,9 +335,11 @@ class _GameScreen extends StatelessWidget {
   final List<Juego> juegos;
   final int index;
   final bool compact, chispas;
+  final double inset;
   final VoidCallback onPrev, onNext, onDown, onPlay;
   final ValueChanged<int> onPick;
   const _GameScreen({
+    required this.inset,
     required this.g,
     required this.juegos,
     required this.index,
@@ -418,7 +424,7 @@ class _GameScreen extends StatelessWidget {
         ),
         // Flechas y miniaturas
         Positioned(
-          left: compact ? 18 : 44,
+          left: inset + (compact ? 18 : 44),
           bottom: compact ? 18 : 52,
           child: Row(children: [
             GlassButton(icon: Icons.chevron_left_rounded, onTap: onPrev, tooltip: 'Anterior', size: compact ? 42 : 52),
@@ -443,7 +449,7 @@ class _GameScreen extends StatelessWidget {
         ),
         if (!compact)
           Positioned(
-            left: 0,
+            left: inset,
             right: 0,
             bottom: 10,
             child: Center(
@@ -591,7 +597,8 @@ class _RecordScreen extends StatelessWidget {
   final ScrollController controller;
   final bool compact;
   final VoidCallback onUp;
-  const _RecordScreen({required this.g, required this.installer, required this.controller, required this.compact, required this.onUp});
+  final double inset;
+  const _RecordScreen({required this.inset, required this.g, required this.installer, required this.controller, required this.compact, required this.onUp});
 
   @override
   Widget build(BuildContext context) {
@@ -611,9 +618,9 @@ class _RecordScreen extends StatelessWidget {
         controller: controller,
         physics: const ClampingScrollPhysics(),
         slivers: [
-          SliverPersistentHeader(pinned: true, delegate: _Header(g: g, compact: compact, onUp: onUp, side: side)),
+          SliverPersistentHeader(pinned: true, delegate: _Header(g: g, compact: compact, onUp: onUp, side: side + inset)),
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(side, compact ? 28 : 48, side, 56),
+            padding: EdgeInsets.fromLTRB(side + inset, compact ? 28 : 48, side, 56),
             sliver: SliverList.list(children: [
               const SectionTitle('Tu partida'),
               _Stats(compact: compact, segundos: installer.segundos(g), ultima: installer.ultima(g)),

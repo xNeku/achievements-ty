@@ -8,7 +8,7 @@ Hecho en Flutter para Android y Mac. Solo horizontal, como una consola.
 
 Cada cambio en `app/` o `data/` compila la app y la publica en [Releases](../../releases/latest):
 
-- **Android**: `hangar.apk`. Descárgalo en el dispositivo y ábrelo. Las builds van firmadas con una clave de depuración distinta cada vez: desinstala la anterior antes de instalar una nueva.
+- **Android**: `hangar.apk`. Descárgalo en el dispositivo y ábrelo. Todas las builds van firmadas con la misma clave, así que se instalan encima de la anterior.
 - **Mac**: `hangar-mac.zip`. Descomprímelo y arrastra Hangar a Aplicaciones. Como no está firmado por Apple, la primera vez hay que permitirlo en Ajustes del Sistema → Privacidad y seguridad → «Abrir igualmente», o ejecutar `xattr -dr com.apple.quarantine /Applications/Hangar.app`.
 
 ## Catálogos
